@@ -2,6 +2,9 @@ import webview
 import os
 import sys
 import ctypes
+import threading
+from PIL import Image
+import pystray
 from src.api import Api
 
 
@@ -11,6 +14,7 @@ class AutoGameApp:
         self.debug = not self.is_frozen
         self.api = Api()
         self.window = None
+        self.tray = None
 
     def get_adaptive_window_size(self):
         user32 = ctypes.windll.user32
@@ -51,9 +55,46 @@ class AutoGameApp:
             js_api=self.api
         )
         self.api.set_window(self.window)
+        self.window.events.closed += self.on_window_closed
+
+    def on_window_closed(self):
+        if self.tray:
+            self.tray.visible = False
+            self.tray.stop()
+
+    def show_window(self):
+        if self.window:
+            self.window.show()
+
+    def exit_app(self):
+        if self.window:
+            self.window.destroy()
+        if self.tray:
+            self.tray.visible = False
+            self.tray.stop()
+
+    def _create_tray(self):
+        icon_path = r'data\logo\logo_tray.png'
+        image = Image.open(icon_path)
+
+        def on_tray_click(icon, item):
+            self.show_window()
+
+        menu = pystray.Menu(
+            pystray.MenuItem('显示主界面', on_tray_click, default=True),
+            pystray.MenuItem('退出', self.exit_app)
+        )
+
+        self.tray = pystray.Icon('AutoGame', image, 'AutoGame', menu)
+
+    def run_tray(self):
+        self._create_tray()
+        self.tray.run()
 
     def run(self):
         self._create_window()
+        tray_thread = threading.Thread(target=self.run_tray, daemon=True)
+        tray_thread.start()
         webview.start(debug=self.debug)
 
 

@@ -7,6 +7,7 @@ type Theme = 'light' | 'dark'
 const currentView = ref('hidden')
 const isMaximized = ref(false)
 const currentTheme = ref<Theme>('dark')
+const minimizeToTray = ref(true)
 
 const themeColors = {
   light: {
@@ -33,6 +34,9 @@ async function loadConfig() {
     if (config.theme && (config.theme === 'light' || config.theme === 'dark')) {
       currentTheme.value = config.theme
     }
+    if (config.minimizeToTray !== undefined) {
+      minimizeToTray.value = config.minimizeToTray
+    }
   } catch (e) {
     console.error('Failed to load config:', e)
   }
@@ -51,6 +55,21 @@ async function saveTheme(theme: Theme) {
 function toggleTheme() {
   currentTheme.value = currentTheme.value === 'dark' ? 'light' : 'dark'
   saveTheme(currentTheme.value)
+}
+
+async function saveMinimizeToTray(value: boolean) {
+  try {
+    const config = await (window as any).pywebview.api.get_config()
+    config.minimizeToTray = value
+    await (window as any).pywebview.api.save_config(config)
+  } catch (e) {
+    console.error('Failed to save config:', e)
+  }
+}
+
+function toggleMinimizeToTray() {
+  minimizeToTray.value = !minimizeToTray.value
+  saveMinimizeToTray(minimizeToTray.value)
 }
 
 function handleNavigate(id: string) {
@@ -141,6 +160,19 @@ provide('toggleTheme', toggleTheme)
                 </svg>
                 <span>{{ currentTheme === 'dark' ? '明亮模式' : '暗黑模式' }}</span>
               </button>
+            </div>
+            <div class="setting-item">
+              <span class="setting-label">关闭主界面</span>
+              <div class="radio-group">
+                <label class="radio-option" :class="{ active: minimizeToTray }">
+                  <input type="radio" name="closeAction" :checked="minimizeToTray" @change="minimizeToTray = true; saveMinimizeToTray(true)" />
+                  <span>最小化到托盘</span>
+                </label>
+                <label class="radio-option" :class="{ active: !minimizeToTray }">
+                  <input type="radio" name="closeAction" :checked="!minimizeToTray" @change="minimizeToTray = false; saveMinimizeToTray(false)" />
+                  <span>退出程序</span>
+                </label>
+              </div>
             </div>
           </div>
           <p v-else-if="currentView !== 'hidden'">内容区域 - {{ currentView }}</p>
@@ -361,6 +393,70 @@ provide('toggleTheme', toggleTheme)
 .theme-toggle-btn svg {
   width: 18px;
   height: 18px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 12px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.app-container[data-theme="dark"] .radio-option {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #9ca3af;
+}
+
+.app-container[data-theme="light"] .radio-option {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #4A5060;
+}
+
+.radio-option:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.app-container[data-theme="dark"] .radio-option.active {
+  background-color: #4A5060;
+  color: #e0e0e0;
+}
+
+.app-container[data-theme="light"] .radio-option.active {
+  background-color: #4A5060;
+  color: #ffffff;
+}
+
+.radio-option input[type="radio"] {
+  display: none;
+}
+
+.radio-option::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  transition: all 0.2s;
+}
+
+.radio-option.active::before {
+  background-color: currentColor;
+  border-color: currentColor;
+  box-shadow: inset 0 0 0 3px #1F2430;
+}
+
+.app-container[data-theme="light"] .radio-option.active::before {
+  box-shadow: inset 0 0 0 3px #E0E9FF;
 }
 
 .hidden-view {

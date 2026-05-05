@@ -47,7 +47,12 @@ class Api:
 
     def close(self):
         if self._window:
-            self._window.destroy()
+            config = self._load_config()
+            minimize_to_tray = config.get('minimizeToTray', True)
+            if minimize_to_tray:
+                self._window.hide()
+            else:
+                self._window.destroy()
 
     def toggle_maximize(self):
         if self._window:
