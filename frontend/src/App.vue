@@ -10,7 +10,7 @@ const currentTheme = ref<Theme>('dark')
 
 const themeColors = {
   light: {
-    bg: '#EDE8EE',
+    bg: '#E0E9FF',
     bgSecondary: '#E5DFE6',
     bgTertiary: '#D9D2DA',
     text: '#1F2430',
@@ -104,7 +104,7 @@ provide('toggleTheme', toggleTheme)
       <div class="window-controls">
         <button class="control-btn minimize-btn" @click="minimize">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="4" y="14" width="16" height="2" rx="1" />
+            <rect x="4" y="12" width="16" height="1" rx="1" />
           </svg>
         </button>
         <button class="control-btn maximize-btn" @click="toggleMaximize">
@@ -164,7 +164,7 @@ provide('toggleTheme', toggleTheme)
 }
 
 .app-container[data-theme="light"] {
-  background-color: #EDE8EE;
+  background-color: #E0E9FF;
 }
 
 .title-bar {
@@ -184,7 +184,7 @@ provide('toggleTheme', toggleTheme)
 }
 
 .app-container[data-theme="light"] .title-bar {
-  background-color: #EDE8EE;
+  background-color: #E0E9FF;
 }
 
 .title {
@@ -269,7 +269,7 @@ provide('toggleTheme', toggleTheme)
 }
 
 .app-container[data-theme="light"] .content {
-  background-color: #EDE8EE;
+  background-color: #E0E9FF;
 }
 
 .view-container {

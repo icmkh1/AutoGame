@@ -39,27 +39,27 @@ function handleClick(id: string) {
       >
         <div class="icon-placeholder">
           <svg v-if="item.id === 'keymouse'" viewBox="0 0 24 24" fill="none">
-            <rect x="2" y="5" width="18" height="11" rx="1.5" fill="#4a9eff" stroke="#ffffff" stroke-width="1"/>
-            <rect x="4" y="7" width="2.5" height="2" rx="0.5" fill="#ffffff"/>
-            <rect x="7" y="7" width="2.5" height="2" rx="0.5" fill="#ffffff"/>
-            <rect x="10" y="7" width="2.5" height="2" rx="0.5" fill="#ffffff"/>
-            <rect x="13" y="7" width="2.5" height="2" rx="0.5" fill="#ffffff"/>
-            <rect x="4" y="10" width="2.5" height="2" rx="0.5" fill="#ffffff"/>
-            <rect x="7" y="10" width="2.5" height="2" rx="0.5" fill="#ffffff"/>
-            <rect x="10" y="10" width="2.5" height="2" rx="0.5" fill="#ffffff"/>
-            <rect x="13" y="10" width="2.5" height="2" rx="0.5" fill="#ffffff"/>
-            <ellipse cx="18" cy="17" rx="4" ry="5" fill="#8b5cf6" stroke="#ffffff" stroke-width="1"/>
-            <ellipse cx="18" cy="15" rx="1.5" ry="1" fill="#ffffff"/>
-            <ellipse cx="18" cy="18.5" rx="1.5" ry="1" fill="#ffffff"/>
-            <line x1="18" y1="15.8" x2="18" y2="17.5" stroke="#ffffff" stroke-width="1"/>
+            <rect x="2" y="5" width="18" height="11" rx="1.5" :fill="currentTheme === 'dark' ? '#4a9eff' : '#60a5fa'" :stroke="currentTheme === 'dark' ? '#ffffff' : '#374151'" stroke-width="1"/>
+            <rect x="4" y="7" width="2.5" height="2" rx="0.5" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <rect x="7" y="7" width="2.5" height="2" rx="0.5" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <rect x="10" y="7" width="2.5" height="2" rx="0.5" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <rect x="13" y="7" width="2.5" height="2" rx="0.5" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <rect x="4" y="10" width="2.5" height="2" rx="0.5" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <rect x="7" y="10" width="2.5" height="2" rx="0.5" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <rect x="10" y="10" width="2.5" height="2" rx="0.5" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <rect x="13" y="10" width="2.5" height="2" rx="0.5" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <ellipse cx="18" cy="17" rx="4" ry="5" :fill="currentTheme === 'dark' ? '#8b5cf6' : '#a78bfa'" :stroke="currentTheme === 'dark' ? '#ffffff' : '#374151'" stroke-width="1"/>
+            <ellipse cx="18" cy="15" rx="1.5" ry="1" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <ellipse cx="18" cy="18.5" rx="1.5" ry="1" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <line x1="18" y1="15.8" x2="18" y2="17.5" :stroke="currentTheme === 'dark' ? '#ffffff' : '#374151'" stroke-width="1"/>
           </svg>
           <svg v-else-if="item.id === 'screencast'" viewBox="0 0 24 24" fill="none">
-            <rect x="1" y="4" width="19" height="13" rx="2" fill="#6366f1" stroke="#ffffff" stroke-width="1"/>
-            <rect x="3" y="6" width="15" height="9" rx="0.5" fill="#1a1a2e"/>
-            <rect x="10" y="15.5" width="1" height="2" rx="0.3" fill="#ffffff"/>
-            <rect x="12" y="8" width="9" height="13" rx="1.5" fill="#10b981" stroke="#ffffff" stroke-width="1"/>
-            <rect x="13.5" y="9.5" width="6" height="9" rx="0.5" fill="#1a1a2e"/>
-            <circle cx="16.5" cy="20.5" r="0.8" fill="#ffffff"/>
+            <rect x="1" y="4" width="19" height="13" rx="2" :fill="currentTheme === 'dark' ? '#6366f1' : '#818cf8'" :stroke="currentTheme === 'dark' ? '#ffffff' : '#374151'" stroke-width="1"/>
+            <rect x="3" y="6" width="15" height="9" rx="0.5" :fill="currentTheme === 'dark' ? '#1a1a2e' : '#374151'"/>
+            <rect x="10" y="15.5" width="1" height="2" rx="0.3" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
+            <rect x="12" y="8" width="9" height="13" rx="1.5" :fill="currentTheme === 'dark' ? '#10b981' : '#34d399'" :stroke="currentTheme === 'dark' ? '#ffffff' : '#374151'" stroke-width="1"/>
+            <rect x="13.5" y="9.5" width="6" height="9" rx="0.5" :fill="currentTheme === 'dark' ? '#1a1a2e' : '#374151'"/>
+            <circle cx="16.5" cy="20.5" r="0.8" :fill="currentTheme === 'dark' ? '#ffffff' : '#374151'"/>
           </svg>
         </div>
         <Transition name="tooltip">
@@ -108,7 +108,7 @@ function handleClick(id: string) {
 }
 
 .sidebar[data-theme="light"] {
-  background-color: #EDE8EE;
+  background-color: #E0E9FF;
 }
 
 .menu-top {
