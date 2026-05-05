@@ -38,7 +38,7 @@ class Api:
     def get_app_info(self):
         return {
             'name': 'AutoGame',
-            'version': '0.1.0'
+            'version': '0.3.0'
         }
 
     def minimize(self):
