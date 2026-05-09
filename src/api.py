@@ -1,36 +1,49 @@
 
-import os
 import json
+from pathlib import Path
 
 
 class Api:
-    def __init__(self):
+    def __init__(self, logger, macro_file):
+        self.logger = logger
+        self.macro_file = macro_file
+
         self._window = None
         self._maximized = False
-        self._config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'config', 'config.json')
+        self._config_path = Path(__file__).parent.parent / 'data' / 'config' / 'config.json'
         self._ensure_config_dir()
 
     def _ensure_config_dir(self):
-        config_dir = os.path.dirname(self._config_path)
-        if not os.path.exists(config_dir):
-            os.makedirs(config_dir, exist_ok=True)
+        config_dir = self._config_path.parent
+        if not config_dir.exists():
+            config_dir.mkdir(parents=True, exist_ok=True)
 
     def _load_config(self):
-        if os.path.exists(self._config_path):
+        if self._config_path.exists():
             try:
                 with open(self._config_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError):
-                pass
+            except Exception as e:
+                self.logger.error(f'加载配置文件 报错信息：{e}')
         return {}
 
     def _save_config(self, config):
         try:
             with open(self._config_path, 'w', encoding='utf-8') as f:
-                json.dump(config, f, ensure_ascii=False, indent=2)
+                json.dump(config, f, ensure_ascii=False, indent=4)
             return True
-        except IOError:
+        except Exception as e:
+            self.logger.error(f'保存配置文件 报错信息：{e}')
             return False
+
+    def get_macro_files(self):
+        return self.macro_file.get_macro_files()
+
+    def load_macrofile(self, name: str):
+        return self.macro_file.load_macro_file(name)
+
+    def save_macrofile(self, name: str):
+        return self.macro_file.save_macro_file(name)
 
     def set_window(self, window):
         self._window = window

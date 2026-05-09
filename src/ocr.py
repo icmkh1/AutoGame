@@ -13,7 +13,7 @@ def ocr(image: np.ndarray):
     Args:
         image: 输入图像，NumPy数组
     Returns:
-        识别结果，包含文本、置信度、文本框坐标
+        识别结果，包含文本、置信度、文本框坐标、文本框中心坐标
     """
 
     ocr_results = []

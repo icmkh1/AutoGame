@@ -1,18 +1,60 @@
 import webview
-import os
 import sys
 import ctypes
-import threading
+import logging
+from pathlib import Path
+from datetime import datetime
+from threading import Thread
 from PIL import Image
 import pystray
 from src.api import Api
+from src.macro import Macro
+from src.macro_file import MacroFile
+
+
+def setup_logging():
+    """
+    配置日志系统
+    """
+    # 配置日志
+    date_format = '%Y_%m_%d__%H_%M_%S'
+    log_format = '%(asctime)s - %(levelname)s - %(message)s'
+
+    # 创建logs目录
+    path = Path('logging')
+    path.mkdir(parents=True, exist_ok=True)
+
+    # 只保留最近的5个日志文件
+    for log_file in path.glob('*.log'):
+        if len(list(path.glob('*.log'))) > 4:
+            log_file.unlink()
+
+    # 设置日志文件名
+    log_filename = path / f'{datetime.now().strftime(date_format)}.log'
+
+    # 配置日志系统
+    logging.basicConfig(
+        level=logging.INFO,
+        format=log_format,
+        datefmt=date_format,
+        handlers=[
+            logging.FileHandler(log_filename, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+
+    return logging.getLogger(__name__)
 
 
 class AutoGameApp:
     def __init__(self):
+        self.logger = setup_logging()
+        self.macro = Macro(self.logger)
+        self.macro_file = MacroFile(self.logger, self.macro)
+        self.api = Api(self.logger, self.macro_file)
+
         self.is_frozen = getattr(sys, 'frozen', False)
         self.debug = not self.is_frozen
-        self.api = Api()
         self.window = None
         self.tray = None
 
@@ -35,8 +77,8 @@ class AutoGameApp:
 
     def _get_index_path(self):
         if self.is_frozen:
-            frontend_path = os.path.join(sys._MEIPASS, 'frontend', 'dist')
-            return os.path.join(frontend_path, 'index.html')
+            frontend_path = Path(sys._MEIPASS) / 'frontend' / 'dist'
+            return frontend_path / 'index.html'
         return 'http://localhost:5173'
 
     def _create_window(self):
@@ -72,6 +114,8 @@ class AutoGameApp:
         if self.tray:
             self.tray.visible = False
             self.tray.stop()
+        if self.macro:
+            self.macro.stop()
 
     def _create_tray(self):
         icon_path = r'data\logo\logo_tray.png'
@@ -93,8 +137,8 @@ class AutoGameApp:
 
     def run(self):
         self._create_window()
-        tray_thread = threading.Thread(target=self.run_tray, daemon=True)
-        tray_thread.start()
+        Thread(target=self.run_tray, daemon=True).start()
+        Thread(target=self.macro.start, daemon=True).start()
         webview.start(debug=self.debug)
 
 
