@@ -8,7 +8,7 @@ from PIL import Image
 import pystray
 from src.api import Api
 from src.macro import Macro
-from src.macro_file import MacroFile
+from src.file_manager import FileManager
 
 
 def setup_logging():
@@ -49,8 +49,8 @@ class AutoGameApp:
     def __init__(self):
         self.logger = setup_logging()
         self.macro = Macro(self.logger)
-        self.macro_file = MacroFile(self.logger, self.macro)
-        self.api = Api(self.logger, self.macro_file, self.macro)
+        self.file_manager = FileManager(self.logger, self.macro)
+        self.api = Api(self.logger, self.file_manager, self.macro)
 
         self.is_frozen = getattr(sys, 'frozen', False)
         self.debug = not self.is_frozen
@@ -90,7 +90,7 @@ class AutoGameApp:
             x=pos_x,
             y=pos_y,
             frameless=True,
-            easy_drag=True,
+            easy_drag=False,
             js_api=self.api
         )
         self.api.set_window(self.window)
@@ -136,7 +136,7 @@ class AutoGameApp:
         self._create_window()
         Thread(target=self.run_tray, daemon=True).start()
         Thread(target=self.macro.start, daemon=True).start()
-        webview.start(debug=self.debug)
+        webview.start(debug=False)
 
 
 if __name__ == '__main__':

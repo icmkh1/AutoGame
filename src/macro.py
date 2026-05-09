@@ -71,6 +71,7 @@ class Macro:
             macro_file (dict): 宏文件内容字典
         """
         self.macro_file = macro_file
+        print(self.macro_file)
 
     def set_main_switch(self, switch: bool):
         """

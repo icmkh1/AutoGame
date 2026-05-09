@@ -36,7 +36,7 @@ const themeColors = {
 
 async function loadConfig() {
   try {
-    const config = await (window as any).pywebview.api.get_config()
+    const config = await (window as any).pywebview.api.get_config_file()
     if (config.theme && (config.theme === 'light' || config.theme === 'dark')) {
       currentTheme.value = config.theme
     }
@@ -53,9 +53,9 @@ async function loadConfig() {
 
 async function saveTheme(theme: Theme) {
   try {
-    const config = await (window as any).pywebview.api.get_config()
+    const config = await (window as any).pywebview.api.get_config_file()
     config.theme = theme
-    await (window as any).pywebview.api.save_config(config)
+    await (window as any).pywebview.api.save_config_file(config)
   } catch (e) {
     console.error('Failed to save config:', e)
   }
@@ -68,9 +68,9 @@ function toggleTheme() {
 
 async function saveMinimizeToTray(value: boolean) {
   try {
-    const config = await (window as any).pywebview.api.get_config()
+    const config = await (window as any).pywebview.api.get_config_file()
     config.minimizeToTray = value
-    await (window as any).pywebview.api.save_config(config)
+    await (window as any).pywebview.api.save_config_file(config)
   } catch (e) {
     console.error('Failed to save config:', e)
   }
@@ -78,9 +78,9 @@ async function saveMinimizeToTray(value: boolean) {
 
 async function saveMacroSwitch(value: string) {
   try {
-    const config = await (window as any).pywebview.api.get_config()
+    const config = await (window as any).pywebview.api.get_config_file()
     config.macroSwitch = value
-    await (window as any).pywebview.api.save_config(config)
+    await (window as any).pywebview.api.save_config_file(config)
   } catch (e) {
     console.error('Failed to save macroSwitch:', e)
   }
@@ -175,7 +175,7 @@ provide('toggleTheme', toggleTheme)
 
 <template>
   <div class="app-container" :data-theme="currentTheme">
-    <div class="title-bar">
+    <div class="title-bar pywebview-drag-region">
       <div class="title"></div>
       <div class="window-controls">
         <button class="control-btn minimize-btn" @click="minimize">

@@ -3,7 +3,7 @@ import ast
 import subprocess
 from pathlib import Path
 
-class MacroFile:
+class FileManager:
 
     def __init__(self, logger, macro):
         self.logger = logger
@@ -18,8 +18,42 @@ class MacroFile:
                 '鼠标图标更改': '是'
             }
         ]
-        print(self.new_file_content)
         self.macro_dir = Path(r'data\macrofile')
+        self.config = {}
+        self.config_path = Path(r'data\config\config.json')
+
+    def load_config_file(self):
+        """
+            加载配置文件
+        Returns:
+            dict | False: 配置文件内容字典 | False
+        """
+        try:
+            if self.config_path.exists():
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    self.config = json.load(f)
+            else:
+                self.config_path.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            self.logger.error(f'加载配置文件 报错信息：{e}')
+        finally:
+            return self.config
+
+    def save_config_file(self, config):
+        """
+            保存配置文件
+        Args:
+            config (dict): 配置文件内容字典
+        Returns:
+            bool: 是否成功保存
+        """
+        try:
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=4)
+            return True
+        except Exception as e:
+            self.logger.error(f'保存配置文件 报错信息：{e}')
+            return False
 
     def get_macro_files(self):
         """

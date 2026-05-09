@@ -26,6 +26,10 @@
   -webkit-app-region: drag;
 }
 
+.pywebview-drag-region {
+  -webkit-app-region: drag;
+}
+
 .app-container[data-theme="dark"] .title-bar {
   background-color: #1F2430;
 }
