@@ -61,7 +61,7 @@ class Api:
 
     def close(self):
         if self._window:
-            config = self._load_config()
+            config = self.file_manager.load_config_file()
             minimize_to_tray = config.get('minimizeToTray', True)
             if minimize_to_tray:
                 self._window.hide()

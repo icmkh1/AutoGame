@@ -130,7 +130,7 @@ function handleClick(id: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s;
 }

@@ -45,7 +45,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 20px;
-  border-radius: 12px;
+  border-radius: 6px;
 }
 
 .settings-view[data-theme="dark"] .setting-item {
@@ -166,7 +166,7 @@
 }
 
 .settings-view[data-theme="light"] .radio-option.active::before {
-  box-shadow: inset 0 0 0 3px #E0E9FF;
+  box-shadow: inset 0 0 0 3px #1F2430;
 }
 
 .macro-switch-input {
