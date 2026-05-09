@@ -2,11 +2,12 @@
 import json
 from pathlib import Path
 
-
 class Api:
-    def __init__(self, logger, macro_file):
+    def __init__(self, logger, macro_file, macro):
         self.logger = logger
         self.macro_file = macro_file
+        self.macro = macro
+        self._no_key_names = ['MLeft', 'MRight', 'Middle', 'side1', 'side2']
 
         self._window = None
         self._maximized = False
@@ -45,6 +46,27 @@ class Api:
     def save_macrofile(self, file_name: str, macro_file: str):
         return self.macro_file.save_macro_file(file_name, macro_file)
 
+    def create_new_file(self):
+        return self.macro_file.create_new_file()
+
+    def rename_file(self, old_name: str, new_name: str):
+        return self.macro_file.rename_file(old_name, new_name)
+
+    def open_folder(self, file_name: str):
+        return self.macro_file.open_folder(file_name)
+
+    def delete_file(self, file_name: str):
+        return self.macro_file.delete_file(file_name)
+
+    def get_key_name(self):
+        key_name = self.macro.get_key_name()
+        if key_name in self._no_key_names:
+            return False
+        return key_name
+
+    def set_main_switch_key(self, key: str):
+        self.macro.set_main_switch_key(key)
+
     def set_window(self, window):
         self._window = window
 
@@ -80,12 +102,19 @@ class Api:
         return False
 
     def get_config(self):
-        return self._load_config()
+        config = self._load_config()
+        self.set_main_switch_key(config['macroSwitch'])
+        return config
 
     def save_config(self, config):
+        self.set_main_switch_key(config['macroSwitch'])
         return self._save_config(config)
 
     def __dir__(self):
-        return ['get_app_info', 'minimize', 'close', 'toggle_maximize',
-        'get_config', 'save_config',
-        'get_macro_files', 'load_macrofile', 'save_macrofile']
+        return [
+            'get_app_info', 'minimize', 'close', 'toggle_maximize',
+            'get_config', 'save_config',
+            'get_macro_files', 'load_macrofile', 'save_macrofile',
+            'create_new_file', 'rename_file', 'open_folder', 'delete_file',
+            'get_key_name', 'set_main_switch_key'
+        ]

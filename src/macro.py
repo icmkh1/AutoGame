@@ -1,4 +1,5 @@
 import time
+import ctypes
 from pathlib import Path
 from threading import Thread
 from autoxkit import (HookListener, HotkeyListener, MouseEvent, KeyEvent,
@@ -14,6 +15,7 @@ class Macro:
         self.logger = logger
 
         self.main_switch = False
+        self.main_switch_key = None
         self.key_name = None
         self.macro_file = None
         self.down_state_keys = []  # 记录已经还在按下状态的按键，弹起清理，用来限制线程重复创建
@@ -60,7 +62,7 @@ class Macro:
         self.hook_listener.stop()
 
 
-#   --------------------------------------------------宏文件控制-------------------------------------------------
+#   --------------------------------------------------类属性设置-------------------------------------------------
 
     def set_macro_file(self, macro_file: dict):
         """
@@ -69,6 +71,49 @@ class Macro:
             macro_file (dict): 宏文件内容字典
         """
         self.macro_file = macro_file
+
+    def set_main_switch(self, switch: bool):
+        """
+            设置主开关
+        Args:
+            switch (bool): True为开启，False为关闭
+        """
+        self.main_switch = switch
+
+    def set_main_switch_key(self, key: str):
+        """
+            设置主开关按键
+        Args:
+            key (str): 主开关按键
+        """
+        self.main_switch_key = key
+
+    def get_key_name(self):
+        """
+            获取当前按键名称
+        Returns:
+            str: 当前按键名称
+        """
+        return self.key_name
+
+    def get_mouse_pos(self):
+        """
+            获取鼠标鼠标位置
+        Returns:
+            tuple: 鼠标位置元组
+        """
+        return self.mouse.get_mouse_position()
+
+    def get_screen_size(self):
+        """
+            获取屏幕分辨率
+        Returns:
+            tuple: 屏幕分辨率元组
+        """
+        user32 = ctypes.windll.user32
+        screen_width = user32.GetSystemMetrics(0)
+        screen_height = user32.GetSystemMetrics(1)
+        return screen_width, screen_height
 
 #   --------------------------------------------------宏指令执行-------------------------------------------------
 

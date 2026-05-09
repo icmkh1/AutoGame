@@ -1,0 +1,224 @@
+.keymouse-control {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.keymouse-control .section-title {
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.keymouse-control[data-theme="dark"] .section-title {
+  color: #e0e0e0;
+}
+
+.keymouse-control[data-theme="light"] .section-title {
+  color: #1F2430;
+}
+
+.scroll-container {
+  width: 50%;
+  max-width: 800px;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.top-button-bar {
+  width: 50%;
+  max-width: 800px;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.macro-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.keymouse-control::-webkit-scrollbar {
+  display: none;
+}
+
+.macro-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  border-radius: 12px;
+  gap: 16px;
+}
+
+.keymouse-control[data-theme="dark"] .macro-item {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.keymouse-control[data-theme="light"] .macro-item {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.file-section {
+  flex: 1;
+  text-align: left;
+}
+
+.file-name {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.button-section {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-wrapper {
+  position: relative;
+}
+
+.delete-section {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.keymouse-control[data-theme="dark"] .file-name {
+  color: #e0e0e0;
+}
+
+.keymouse-control[data-theme="light"] .file-name {
+  color: #1F2430;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.keymouse-control[data-theme="dark"] .action-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+}
+
+.keymouse-control[data-theme="light"] .action-btn {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #1F2430;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.keymouse-control[data-theme="dark"] .action-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.keymouse-control[data-theme="light"] .action-btn:hover {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+.action-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.keymouse-control[data-theme="dark"] .delete-btn {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.keymouse-control[data-theme="light"] .delete-btn {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.delete-btn:hover {
+  transform: translateY(-1px);
+}
+
+.keymouse-control[data-theme="dark"] .delete-btn:hover {
+  background-color: rgba(239, 68, 68, 0.3);
+}
+
+.keymouse-control[data-theme="light"] .delete-btn:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+}
+
+.delete-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-wrapper .tooltip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.keymouse-control[data-theme="dark"] .btn-wrapper .tooltip {
+  background-color: #2d2d44;
+  color: #ffffff;
+}
+
+.keymouse-control[data-theme="light"] .btn-wrapper .tooltip {
+  background-color: #ffffff;
+  color: #1F2430;
+}
+
+.tooltip-enter-active,
+.tooltip-leave-active {
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.tooltip-enter-from,
+.tooltip-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-4px);
+}

@@ -1,4 +1,5 @@
 {
     "theme": "dark",
-    "minimizeToTray": true
+    "minimizeToTray": true,
+    "macroSwitch": "F1"
 }

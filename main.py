@@ -1,6 +1,5 @@
 import webview
 import sys
-import ctypes
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -51,7 +50,7 @@ class AutoGameApp:
         self.logger = setup_logging()
         self.macro = Macro(self.logger)
         self.macro_file = MacroFile(self.logger, self.macro)
-        self.api = Api(self.logger, self.macro_file)
+        self.api = Api(self.logger, self.macro_file, self.macro)
 
         self.is_frozen = getattr(sys, 'frozen', False)
         self.debug = not self.is_frozen
@@ -59,9 +58,7 @@ class AutoGameApp:
         self.tray = None
 
     def get_adaptive_window_size(self):
-        user32 = ctypes.windll.user32
-        screen_width = user32.GetSystemMetrics(0)
-        screen_height = user32.GetSystemMetrics(1)
+        screen_width, screen_height = self.macro.get_screen_size()
 
         scale_factor = (screen_width - 1920) * (0.2 / 640)
         scale_w = 1.8 + scale_factor
