@@ -6,10 +6,11 @@ import { json } from '@codemirror/lang-json'
 import { HighlightStyle, syntaxHighlighting, indentUnit } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { keymap } from '@codemirror/view'
-import { defaultKeymap, indentWithTab } from '@codemirror/commands'
+import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands'
 
 const basicSetup = [
-  keymap.of(defaultKeymap),
+  history(),
+  keymap.of([...defaultKeymap, ...historyKeymap]),
   keymap.of([indentWithTab]),
 ]
 
