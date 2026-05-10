@@ -1,5 +1,18 @@
 <script setup lang="ts">
-import { ref, inject, type Ref } from 'vue'
+import { ref, onMounted, onUnmounted, watch, inject, type Ref } from 'vue'
+import { EditorView } from '@codemirror/view'
+import { EditorState, Compartment } from '@codemirror/state'
+import { json } from '@codemirror/lang-json'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { tags } from '@lezer/highlight'
+import { keymap } from '@codemirror/view'
+import { defaultKeymap, indentWithTab } from '@codemirror/commands'
+
+const basicSetup = [
+  keymap.of(defaultKeymap),
+  keymap.of([indentWithTab]),
+]
 
 type Theme = 'light' | 'dark'
 
@@ -14,21 +27,257 @@ const emit = defineEmits<{
   (e: 'update:content', value: string): void
 }>()
 
-const editorContent = ref(props.content)
+const editorRef = ref<HTMLDivElement | null>(null)
+let editorView: EditorView | null = null
+const languageCompartment = new Compartment()
+const themeCompartment = new Compartment()
 
-function handleTabKey(event: KeyboardEvent) {
-  if (event.key === 'Tab') {
-    event.preventDefault()
-    const textarea = event.target as HTMLTextAreaElement
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const value = textarea.value
-    editorContent.value = value.substring(0, start) + '    ' + value.substring(end)
-    setTimeout(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + 4
-    }, 0)
+const darkHighlightStyle = HighlightStyle.define([
+  { tag: tags.propertyName, color: '#80CBC4' },
+  { tag: tags.string, color: '#C3E88D' },
+  { tag: tags.number, color: '#C3E88D' },
+  { tag: tags.bool, color: '#C3E88D' },
+  { tag: tags.null, color: '#C3E88D' },
+  { tag: tags.separator, color: '#CDD3DE' },
+  { tag: tags.squareBracket, color: '#FFD700' },
+  { tag: tags.brace, color: '#DA70D6' },
+])
+
+const lightHighlightStyle = HighlightStyle.define([
+  { tag: tags.propertyName, color: '#0eb0a1' },
+  { tag: tags.string, color: '#bf9850' },
+  { tag: tags.number, color: '#bf9850' },
+  { tag: tags.bool, color: '#bf9850' },
+  { tag: tags.null, color: '#bf9850' },
+  { tag: tags.separator, color: '#424242' },
+  { tag: tags.squareBracket, color: '#e69400' },
+  { tag: tags.brace, color: '#9932CC' },
+])
+
+function getExtensions() {
+  const extensions = [
+    basicSetup,
+    languageCompartment.of(json()),
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged) {
+        emit('update:content', update.state.doc.toString())
+      }
+    }),
+  ]
+
+  if (currentTheme?.value === 'dark') {
+    extensions.push(themeCompartment.of([
+      syntaxHighlighting(darkHighlightStyle),
+      EditorView.theme({
+                '&': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  color: '#e0e0e0',
+                  borderRadius: '6px',
+                },
+                '.cm-content': {
+                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                  textAlign: 'left',
+                  caretColor: '#ffffff',
+                },
+                '.cm-line': {
+                  textAlign: 'left',
+                },
+                '.cm-gutters': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#888',
+                },
+                '.cm-activeLineGutter': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+                '.cm-activeLine': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                },
+                '.cm-selectionMatch': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+                '&.cm-focused .cm-selectionBackground': {
+                  backgroundColor: 'rgba(100, 150, 255, 0.3)',
+                },
+                '.cm-selectionBackground': {
+                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
+                },
+                '&.cm-focused .cm-cursor': {
+                  borderLeftColor: '#ffffff',
+                  borderLeftWidth: '2px',
+                },
+              }),
+    ]))
+  } else {
+    extensions.push(themeCompartment.of([
+      syntaxHighlighting(lightHighlightStyle),
+      EditorView.theme({
+        '&': {
+          backgroundColor: 'rgba(0, 0, 0, 0.03)',
+          color: '#1F2430',
+          borderRadius: '6px',
+        },
+        '.cm-content': {
+          fontFamily: 'Consolas, Monaco, Courier New, monospace',
+          fontSize: '14px',
+          lineHeight: '1.6',
+          textAlign: 'left',
+        },
+        '.cm-line': {
+          textAlign: 'left',
+        },
+        '.cm-gutters': {
+          backgroundColor: 'rgba(0, 0, 0, 0.02)',
+          borderRight: '1px solid rgba(0, 0, 0, 0.1)',
+          color: '#888',
+        },
+        '.cm-activeLineGutter': {
+          backgroundColor: 'rgba(0, 0, 0, 0.05)',
+        },
+        '.cm-activeLine': {
+          backgroundColor: 'rgba(0, 0, 0, 0.03)',
+        },
+        '.cm-selectionMatch': {
+          backgroundColor: 'rgba(100, 150, 255, 0.2)',
+        },
+        '&.cm-focused .cm-selectionBackground': {
+          backgroundColor: 'rgba(100, 150, 255, 0.3)',
+        },
+        '.cm-selectionBackground': {
+          backgroundColor: 'rgba(100, 150, 255, 0.2)',
+        },
+      }),
+    ]))
   }
+
+  return extensions
 }
+
+onMounted(() => {
+  if (editorRef.value) {
+    editorView = new EditorView({
+      state: EditorState.create({
+        doc: props.content,
+        extensions: getExtensions(),
+      }),
+      parent: editorRef.value,
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (editorView) {
+    editorView.destroy()
+    editorView = null
+  }
+})
+
+watch(() => props.content, (newContent) => {
+  if (editorView && editorView.state.doc.toString() !== newContent) {
+    editorView.dispatch({
+      changes: {
+        from: 0,
+        to: editorView.state.doc.length,
+        insert: newContent,
+      },
+    })
+  }
+})
+
+watch(currentTheme, () => {
+  if (editorView) {
+    editorView.dispatch({
+      effects: themeCompartment.reconfigure(
+        currentTheme?.value === 'dark'
+          ? [
+              syntaxHighlighting(darkHighlightStyle),
+              EditorView.theme({
+                '&': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  color: '#e0e0e0',
+                  borderRadius: '6px',
+                },
+                '.cm-content': {
+                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                  textAlign: 'left',
+                  caretColor: '#ffffff',
+                },
+                '.cm-line': {
+                  textAlign: 'left',
+                },
+                '.cm-gutters': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                  borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#888',
+                },
+                '.cm-activeLineGutter': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+                '.cm-activeLine': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                },
+                '.cm-selectionMatch': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                },
+                '&.cm-focused .cm-selectionBackground': {
+                  backgroundColor: 'rgba(100, 150, 255, 0.3)',
+                },
+                '.cm-selectionBackground': {
+                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
+                },
+                '&.cm-focused .cm-cursor': {
+                  borderLeftColor: '#ffffff',
+                  borderLeftWidth: '2px',
+                },
+              }),
+            ]
+          : [
+              syntaxHighlighting(lightHighlightStyle),
+              EditorView.theme({
+                '&': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                  color: '#1F2430',
+                  borderRadius: '6px',
+                },
+                '.cm-content': {
+                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                  textAlign: 'left',
+                },
+                '.cm-line': {
+                  textAlign: 'left',
+                },
+                '.cm-gutters': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.02)',
+                  borderRight: '1px solid rgba(0, 0, 0, 0.1)',
+                  color: '#888',
+                },
+                '.cm-activeLineGutter': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                },
+                '.cm-activeLine': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                },
+                '.cm-selectionMatch': {
+                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
+                },
+                '&.cm-focused .cm-selectionBackground': {
+                  backgroundColor: 'rgba(100, 150, 255, 0.3)',
+                },
+                '.cm-selectionBackground': {
+                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
+                },
+              }),
+            ]
+      ),
+    })
+  }
+})
 
 function goBack() {
   emit('back')
@@ -52,13 +301,7 @@ function goBack() {
       <span class="file-title">{{ fileName }}</span>
     </div>
     <div class="editor-container">
-      <textarea
-        class="text-editor"
-        v-model="editorContent"
-        placeholder="在此输入宏内容..."
-        @keydown="handleTabKey"
-        @input="emit('update:content', editorContent)"
-      ></textarea>
+      <div ref="editorRef" class="codemirror-editor"></div>
     </div>
   </div>
 </template>
