@@ -238,6 +238,8 @@ onMounted(() => {
   }
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('keydown', handleKeyPressStop)
+  window.addEventListener('mousedown', handleMouseClickStop)
+  window.addEventListener('blur', handleWindowBlur)
 })
 
 onUnmounted(() => {
@@ -248,6 +250,8 @@ onUnmounted(() => {
   stopAllListening()
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keydown', handleKeyPressStop)
+  window.removeEventListener('mousedown', handleMouseClickStop)
+  window.removeEventListener('blur', handleWindowBlur)
 })
 
 watch(() => props.content, (newContent) => {
@@ -477,6 +481,16 @@ async function startPixelColorListening() {
 }
 
 function handleKeyPressStop(_e: KeyboardEvent) {
+  stopMousePositionListening()
+  stopPixelColorListening()
+}
+
+function handleMouseClickStop(_e: MouseEvent) {
+  stopMousePositionListening()
+  stopPixelColorListening()
+}
+
+function handleWindowBlur() {
   stopMousePositionListening()
   stopPixelColorListening()
 }
