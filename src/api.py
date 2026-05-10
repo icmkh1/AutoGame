@@ -51,11 +51,23 @@ class Api:
     def clear_new_error_flag(self):
         return self.file_manager.clear_new_error_flag()
 
-    def get_key_name(self):
+    def get_main_switch_key_name(self):
         key_name = self.macro.get_key_name()
         if key_name in self._no_key_names:
             return False
         return key_name
+
+    def get_key_name(self):
+        key_name = self.macro.get_key_name()
+        return key_name
+
+    def get_mouse_position(self):
+        x, y = self.macro.get_mouse_position()
+        return f'{x}, {y}'
+
+    def get_pixel_color(self):
+        color = self.macro.get_pixel_color()
+        return color
 
     def set_window(self, window):
         self._window = window
@@ -94,7 +106,8 @@ class Api:
     def __dir__(self):
         return [
             'get_app_info', 'minimize', 'close', 'toggle_maximize',
-            'get_config_file', 'save_config_file', 'get_key_name',
+            'get_config_file', 'save_config_file',
+            'get_main_switch_key_name', 'get_key_name', 'get_mouse_position', 'get_pixel_color',
             'get_macro_files', 'load_macrofile', 'save_macrofile',
             'create_new_file', 'rename_file', 'open_folder', 'delete_file',
             'get_memory_logs', 'clear_memory_logs', 'has_new_error', 'clear_new_error_flag',

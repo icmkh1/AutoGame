@@ -97,13 +97,22 @@ class Macro:
         """
         return self.key_name
 
-    def get_mouse_pos(self):
+    def get_mouse_position(self):
         """
             获取鼠标鼠标位置
         Returns:
             tuple: 鼠标位置元组
         """
         return self.mouse.get_mouse_position()
+
+    def get_pixel_color(self):
+        """
+            获取指定像素的颜色
+        Returns:
+            tuple: 像素颜色元组
+        """
+        x, y = self.get_mouse_position()
+        return self.match_color.get_pixel_color(x, y, is_return_hex=True)
 
     def get_screen_size(self):
         """

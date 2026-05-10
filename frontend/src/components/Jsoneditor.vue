@@ -29,6 +29,65 @@ const emit = defineEmits<{
 const saveButtonText = ref('保存')
 const saveButtonState = ref<'normal' | 'success' | 'error'>('normal')
 
+const keyName = ref('按键名称')
+const mousePosition = ref('鼠标位置')
+const pixelColor = ref('颜色获取')
+
+const isListeningKeyName = ref(false)
+const isListeningMousePosition = ref(false)
+const isListeningPixelColor = ref(false)
+
+let keyNameInterval: ReturnType<typeof setInterval> | null = null
+let mousePositionInterval: ReturnType<typeof setInterval> | null = null
+let pixelColorInterval: ReturnType<typeof setInterval> | null = null
+
+const keyNameInputRef = ref<HTMLInputElement | null>(null)
+const mousePositionInputRef = ref<HTMLInputElement | null>(null)
+const pixelColorInputRef = ref<HTMLInputElement | null>(null)
+
+async function startKeyNameListening() {
+  if (keyNameInterval) return
+  isListeningKeyName.value = true
+  keyNameInterval = setInterval(async () => {
+    try {
+      const keyNameResult = await (window as any).pywebview.api.get_key_name()
+      if (keyNameResult) {
+        if (keyNameResult === 'MLeft') {
+          keyName.value = keyNameResult
+        }else if (keyNameResult !== keyName.value) {
+          keyName.value = keyNameResult
+          stopKeyNameListening()
+        }
+      }
+    } catch (e) {
+      // ignore errors during listening
+    }
+  }, 100)
+}
+
+function stopKeyNameListening() {
+  if (keyNameInterval) {
+    clearInterval(keyNameInterval)
+    keyNameInterval = null
+  }
+  isListeningKeyName.value = false
+  if (keyNameInputRef.value) {
+    keyNameInputRef.value.blur()
+  }
+}
+
+function onKeyNameFocus() {
+  startKeyNameListening()
+}
+
+function onKeyNameBlur() {
+}
+
+function onKeyNameInput(event: Event) {
+  const target = event.target as HTMLInputElement
+  target.value = keyName.value
+}
+
 const editorRef = ref<HTMLDivElement | null>(null)
 let editorView: EditorView | null = null
 const languageCompartment = new Compartment()
@@ -178,6 +237,7 @@ onMounted(() => {
     })
   }
   window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('keydown', handleKeyPressStop)
 })
 
 onUnmounted(() => {
@@ -185,7 +245,9 @@ onUnmounted(() => {
     editorView.destroy()
     editorView = null
   }
+  stopAllListening()
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('keydown', handleKeyPressStop)
 })
 
 watch(() => props.content, (newContent) => {
@@ -308,7 +370,7 @@ async function saveFile() {
       saveButtonText.value = '错误'
     } else {
       saveButtonState.value = 'success'
-      saveButtonText.value = '已保存'
+      saveButtonText.value = '保存'
 
       if (result && typeof result === 'object') {
         const formattedContent = JSON.stringify(result, null, 4)
@@ -334,6 +396,91 @@ async function saveFile() {
   }
 }
 
+function stopAllListening() {
+  if (keyNameInterval) {
+    clearInterval(keyNameInterval)
+    keyNameInterval = null
+  }
+  if (mousePositionInterval) {
+    clearInterval(mousePositionInterval)
+    mousePositionInterval = null
+  }
+  if (pixelColorInterval) {
+    clearInterval(pixelColorInterval)
+    pixelColorInterval = null
+  }
+  isListeningKeyName.value = false
+  isListeningMousePosition.value = false
+  isListeningPixelColor.value = false
+
+  if (keyNameInputRef.value) {
+    keyNameInputRef.value.blur()
+  }
+  if (mousePositionInputRef.value) {
+    mousePositionInputRef.value.blur()
+  }
+  if (pixelColorInputRef.value) {
+    pixelColorInputRef.value.blur()
+  }
+}
+
+function stopMousePositionListening() {
+  if (mousePositionInterval) {
+    clearInterval(mousePositionInterval)
+    mousePositionInterval = null
+  }
+  isListeningMousePosition.value = false
+  if (mousePositionInputRef.value) {
+    mousePositionInputRef.value.blur()
+  }
+}
+
+function stopPixelColorListening() {
+  if (pixelColorInterval) {
+    clearInterval(pixelColorInterval)
+    pixelColorInterval = null
+  }
+  isListeningPixelColor.value = false
+  if (pixelColorInputRef.value) {
+    pixelColorInputRef.value.blur()
+  }
+}
+
+async function startMousePositionListening() {
+  stopAllListening()
+  isListeningMousePosition.value = true
+  mousePositionInterval = setInterval(async () => {
+    try {
+      const result = await (window as any).pywebview.api.get_mouse_position()
+      if (result) {
+        mousePosition.value = result
+      }
+    } catch (e) {
+      // ignore errors
+    }
+  }, 50)
+}
+
+async function startPixelColorListening() {
+  stopAllListening()
+  isListeningPixelColor.value = true
+  pixelColorInterval = setInterval(async () => {
+    try {
+      const result = await (window as any).pywebview.api.get_pixel_color()
+      if (result) {
+        pixelColor.value = result
+      }
+    } catch (e) {
+      // ignore errors
+    }
+  }, 50)
+}
+
+function handleKeyPressStop(_e: KeyboardEvent) {
+  stopMousePositionListening()
+  stopPixelColorListening()
+}
+
 function goBack() {
   emit('back')
 }
@@ -344,25 +491,55 @@ function goBack() {
 <template>
   <div class="json-editor" :data-theme="currentTheme">
     <div class="editor-header">
-      <div class="header-left">
+      <div class="header-line">
+        <div class="header-left">
+          <button
+            class="back-btn"
+            @click="goBack"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            <span>返回</span>
+          </button>
+          <!-- <span class="file-title">{{ fileName }}</span> -->
+        </div>
+        <div class="tool-inputs">
+          <input
+            ref="keyNameInputRef"
+            type="text"
+            class="tool-input"
+            :class="{ listening: isListeningKeyName }"
+            v-model="keyName"
+            @focus="onKeyNameFocus"
+            @blur="onKeyNameBlur"
+            @input.prevent="onKeyNameInput"
+          />
+          <input
+            ref="mousePositionInputRef"
+            type="text"
+            class="tool-input"
+            :class="{ listening: isListeningMousePosition }"
+            v-model="mousePosition"
+            @click="startMousePositionListening"
+          />
+          <input
+            ref="pixelColorInputRef"
+            type="text"
+            class="tool-input"
+            :class="{ listening: isListeningPixelColor }"
+            v-model="pixelColor"
+            @click="startPixelColorListening"
+          />
+        </div>
         <button
-          class="back-btn"
-          @click="goBack"
+          class="save-btn"
+          :class="{ success: saveButtonState === 'success', error: saveButtonState === 'error' }"
+          @click="saveFile"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-          </svg>
-          <span>返回</span>
+          {{ saveButtonText }}
         </button>
-        <span class="file-title">{{ fileName }}</span>
       </div>
-      <button
-        class="save-btn"
-        :class="{ success: saveButtonState === 'success', error: saveButtonState === 'error' }"
-        @click="saveFile"
-      >
-        {{ saveButtonText }}
-      </button>
     </div>
     <div class="editor-container">
       <div ref="editorRef" class="codemirror-editor"></div>

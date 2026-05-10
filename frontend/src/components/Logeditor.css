@@ -16,7 +16,8 @@
   padding: 3px;
   align-items: center;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
+  margin-top: 8px;
 }
 
 .file-title {
