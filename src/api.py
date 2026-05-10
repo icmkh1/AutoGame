@@ -1,4 +1,5 @@
 
+
 class Api:
     def __init__(self, logger, file_manager, macro):
         self.logger = logger
@@ -73,10 +74,7 @@ class Api:
         self._window = window
 
     def get_app_info(self):
-        return {
-            'name': 'AutoGame',
-            'version': '0.5.0'
-        }
+        return self.file_manager._load_project_info()
 
     def minimize(self):
         if self._window:

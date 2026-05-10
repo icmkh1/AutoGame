@@ -1,7 +1,9 @@
 import json
 import ast
+import tomli
 import subprocess
 from pathlib import Path
+
 
 class FileManager:
 
@@ -21,6 +23,19 @@ class FileManager:
         self.macro_dir = Path(r'data\macrofile')
         self.config = {}
         self.config_path = Path(r'data\config\config.json')
+        self.pyproject_path = Path(r'pyproject.toml')
+
+    def _load_project_info(self):
+        try:
+            with open(self.pyproject_path, 'rb') as f:
+                data = tomli.load(f)
+            return {
+                'name': data['project']['name'],
+                'version': data['project']['version']
+            }
+        except Exception as e:
+            self.logger.error(f'加载项目信息 报错信息：{e}')
+            return {'name': 'AutoGame', 'version': '0.0.0'}
 
     def load_config_file(self):
         """

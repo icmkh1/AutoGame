@@ -17,6 +17,7 @@ const currentView = ref('hidden')
 const isMaximized = ref(false)
 const currentTheme = ref<Theme>('dark')
 const hasNewLogError = ref(false)
+const appInfo = ref({ name: 'AutoGame', version: '0.0.0' })
 let logCheckInterval: number | null = null
 
 // 保存 keymouse 视图的子状态
@@ -53,6 +54,15 @@ async function loadConfig() {
     }
   } catch (e) {
     console.error('Failed to load config:', e)
+  }
+}
+
+async function loadAppInfo() {
+  try {
+    const info = await (window as any).pywebview.api.get_app_info()
+    appInfo.value = info
+  } catch (e) {
+    console.error('Failed to load app info:', e)
   }
 }
 
@@ -119,6 +129,7 @@ async function pollForConfig() {
     try {
       if ((window as any).pywebview && (window as any).pywebview.api) {
         await loadConfig()
+        await loadAppInfo()
         return
       }
     } catch (e) {
@@ -145,6 +156,7 @@ onUnmounted(() => {
 provide('theme', currentTheme)
 provide('themeColors', themeColors)
 provide('toggleTheme', toggleTheme)
+provide('appInfo', appInfo)
 </script>
 
 <style src="./App.css" scoped></style>
@@ -152,6 +164,7 @@ provide('toggleTheme', toggleTheme)
 <template>
   <div class="app-container" :data-theme="currentTheme">
     <div class="title-bar pywebview-drag-region">
+      <span class="app-name">{{ appInfo.name }}</span>
       <div class="title"></div>
       <div class="window-controls">
         <button class="control-btn minimize-btn" @click="minimize">
@@ -179,8 +192,8 @@ provide('toggleTheme', toggleTheme)
       <main class="content">
         <div class="view-container">
           <div v-if="currentView === 'hidden'" class="hidden-view"></div>
-          <Filelist 
-            v-else-if="currentView === 'keymouse'" 
+          <Filelist
+            v-else-if="currentView === 'keymouse'"
             :initialSubView="keymouseSubView.view"
             :initialFileName="keymouseSubView.fileName"
             :initialContent="keymouseSubView.content"
@@ -190,8 +203,8 @@ provide('toggleTheme', toggleTheme)
           />
           <h1 v-else-if="currentView === 'screencast'">手机投屏</h1>
           <Settings v-else-if="currentView === 'settings'" />
-          <Logeditor 
-            v-else-if="currentView === 'logs'" 
+          <Logeditor
+            v-else-if="currentView === 'logs'"
           />
         </div>
       </main>

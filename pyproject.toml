@@ -1,5 +1,5 @@
 [project]
-name = "autogame"
+name = "AutoGame"
 version = "0.7.0"
 description = "Add your description here"
 readme = "README.md"
@@ -15,4 +15,5 @@ dependencies = [
     "pystray>=0.19.5",
     "pywebview>=6.2.1",
     "shapely>=2.1.2",
+    "tomli>=2.4.1",
 ]

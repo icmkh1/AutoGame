@@ -187,3 +187,18 @@
 .macro-switch-input:focus {
   box-shadow: 0 0 0 2px #4A5060;
 }
+
+.app-info {
+  margin-top: auto;
+  padding: 16px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.settings-view[data-theme="dark"] .app-info {
+  color: #6b7280;
+}
+
+.settings-view[data-theme="light"] .app-info {
+  color: #9ca3af;
+}

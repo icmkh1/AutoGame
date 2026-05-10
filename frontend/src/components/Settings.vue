@@ -5,6 +5,7 @@ type Theme = 'light' | 'dark'
 
 const currentTheme = inject<Ref<Theme>>('theme')
 const toggleTheme = inject<() => void>('toggleTheme')
+const appInfo = inject<Ref<{ name: string; version: string }>>('appInfo')
 
 const minimizeToTray = ref(true)
 const macroSwitch = ref('F1')
@@ -159,6 +160,9 @@ onMounted(() => {
           />
         </div>
       </div>
+    </div>
+    <div class="app-info">
+      <span>{{ appInfo?.name }}  version: {{ appInfo?.version }}</span>
     </div>
   </div>
 </template>
