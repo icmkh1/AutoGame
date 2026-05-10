@@ -1,15 +1,30 @@
 <script setup lang="ts">
-import { ref, onMounted, provide } from 'vue'
+import { ref, onMounted, onUnmounted, provide } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import Filelist from './components/Filelist.vue'
 import Settings from './components/Settings.vue'
+import Logeditor from './components/Logeditor.vue'
 import './App.css'
 
 type Theme = 'light' | 'dark'
+type KeymouseSubView = {
+  view: 'list' | 'editor'
+  fileName: string
+  content: string
+}
 
 const currentView = ref('hidden')
 const isMaximized = ref(false)
 const currentTheme = ref<Theme>('dark')
+const hasNewLogError = ref(false)
+let logCheckInterval: number | null = null
+
+// 保存 keymouse 视图的子状态
+const keymouseSubView = ref<KeymouseSubView>({
+  view: 'list',
+  fileName: '',
+  content: ''
+})
 
 const themeColors = {
   light: {
@@ -56,8 +71,32 @@ function toggleTheme() {
   saveTheme(currentTheme.value)
 }
 
+async function checkNewLogError() {
+  try {
+    if ((window as any).pywebview && (window as any).pywebview.api) {
+      hasNewLogError.value = await (window as any).pywebview.api.has_new_error()
+    }
+  } catch (e) {
+    console.error('Failed to check new log error:', e)
+  }
+}
+
+async function clearNewLogErrorFlag() {
+  try {
+    if ((window as any).pywebview && (window as any).pywebview.api) {
+      await (window as any).pywebview.api.clear_new_error_flag()
+      hasNewLogError.value = false
+    }
+  } catch (e) {
+    console.error('Failed to clear new log error flag:', e)
+  }
+}
+
 function handleNavigate(id: string) {
   currentView.value = id
+  if (id === 'logs') {
+    clearNewLogErrorFlag()
+  }
 }
 
 async function minimize() {
@@ -93,6 +132,14 @@ async function pollForConfig() {
 
 onMounted(() => {
   pollForConfig()
+  // 每秒检查一次是否有新的错误
+  logCheckInterval = window.setInterval(checkNewLogError, 1000)
+})
+
+onUnmounted(() => {
+  if (logCheckInterval !== null) {
+    clearInterval(logCheckInterval)
+  }
 })
 
 provide('theme', currentTheme)
@@ -128,13 +175,24 @@ provide('toggleTheme', toggleTheme)
       </div>
     </div>
     <div class="main-container">
-      <Sidebar class="sidebar" @navigate="handleNavigate" />
+      <Sidebar class="sidebar" :has-new-log-error="hasNewLogError" @navigate="handleNavigate" />
       <main class="content">
         <div class="view-container">
           <div v-if="currentView === 'hidden'" class="hidden-view"></div>
-          <Filelist v-else-if="currentView === 'keymouse'" />
+          <Filelist 
+            v-else-if="currentView === 'keymouse'" 
+            :initialSubView="keymouseSubView.view"
+            :initialFileName="keymouseSubView.fileName"
+            :initialContent="keymouseSubView.content"
+            @updateSubView="keymouseSubView.view = $event"
+            @updateFileName="keymouseSubView.fileName = $event"
+            @updateContent="keymouseSubView.content = $event"
+          />
           <h1 v-else-if="currentView === 'screencast'">手机投屏</h1>
           <Settings v-else-if="currentView === 'settings'" />
+          <Logeditor 
+            v-else-if="currentView === 'logs'" 
+          />
         </div>
       </main>
     </div>

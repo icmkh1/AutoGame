@@ -14,6 +14,10 @@ const menuItems: MenuItem[] = [
   { id: 'screencast', label: '手机投屏', icon: '' },
 ]
 
+const props = defineProps<{
+  hasNewLogError?: boolean
+}>()
+
 const hoveredItem = ref<string | null>(null)
 const currentTheme = inject<Ref<Theme>>('theme')
 
@@ -70,6 +74,27 @@ function handleClick(id: string) {
       </div>
     </div>
     <div class="menu-bottom">
+      <div
+        class="menu-item"
+        @mouseenter="hoveredItem = 'logs'"
+        @mouseleave="hoveredItem = null"
+        @click="handleClick('logs')"
+      >
+        <div class="icon-placeholder">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="3" width="18" height="18" rx="2" fill="none" :stroke="currentTheme === 'dark' ? '#ffffff' : '#1F2430'" stroke-width="2"/>
+            <line x1="7" y1="8" x2="17" y2="8" :stroke="currentTheme === 'dark' ? '#ffffff' : '#1F2430'" stroke-width="2" stroke-linecap="round"/>
+            <line x1="7" y1="12" x2="17" y2="12" :stroke="currentTheme === 'dark' ? '#ffffff' : '#1F2430'" stroke-width="2" stroke-linecap="round"/>
+            <line x1="7" y1="16" x2="14" y2="16" :stroke="currentTheme === 'dark' ? '#ffffff' : '#1F2430'" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div v-if="hasNewLogError" class="error-dot"></div>
+        <Transition name="tooltip">
+          <div v-if="hoveredItem === 'logs'" class="tooltip">
+            日志
+          </div>
+        </Transition>
+      </div>
       <div
         class="menu-item"
         @mouseenter="hoveredItem = 'settings'"
@@ -159,6 +184,21 @@ function handleClick(id: string) {
 .icon-placeholder svg {
   width: 100%;
   height: 100%;
+}
+
+.error-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.sidebar[data-theme="dark"] .error-dot {
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .tooltip {

@@ -137,9 +137,9 @@ class Macro:
 
                 handler = self.commands.get(action_list[0], self._click)
                 handler(action_list, len_al)
-        except Exception:
+        except Exception as e:
             self.logger.error(f'执行错误 完整指令：{instruction}')
-            return False
+            raise e
 
     def _raise_error(self, error_msg):
         """
@@ -312,6 +312,7 @@ class Macro:
                 time.sleep(sleep_time)
         except Exception as e:
             self.logger.error(f'功能 连击 报错信息：{e}')
+            raise e
 
     def fixed_continuous(self, data: dict):
         """
@@ -331,6 +332,7 @@ class Macro:
                 self.logger.error(f'功能 固定连击 错误信息：连击次数或连击间隔缺失，当前数据：{data}')
         except Exception as e:
             self.logger.error(f'功能 固定连击 报错信息：{e}')
+            raise e
 
     def macros(self, data: dict):
         """
@@ -343,6 +345,7 @@ class Macro:
             self.execute_macro(data['宏指令'])
         except Exception as e:
             self.logger.error(f'功能 宏 报错信息：{e}')
+            raise e
 
     def ordered_macros(self, data: dict):
         """
@@ -360,6 +363,7 @@ class Macro:
                         self.execute_macro(data['后置指令'])
         except Exception as e:
             self.logger.error(f'功能 有序宏 报错信息：{e}')
+            raise e
 
     def follow(self, data: dict, state: bool):
         """
@@ -376,6 +380,7 @@ class Macro:
                 self.execute_macro(f'弹起 {data["宏指令"]}')
         except Exception as e:
             self.logger.error(f'功能 跟随 报错信息：{e}')
+            raise e
 
     def combination(self, data: dict, auxiliary: str, auxiliary_n: str):
         """
@@ -409,6 +414,7 @@ class Macro:
                 self.execute_macro(instruction)
         except Exception as e:
             self.logger.error(f'功能 组合 报错信息：{e}')
+            raise e
 
     def mappings(self, data: dict, auxiliary: str, auxiliary_n: str, mapping: str, mapping_n: str):
         """
@@ -434,6 +440,7 @@ class Macro:
             self.execute_macro(instruction)
         except Exception as e:
             self.logger.error(f'功能 映射 报错信息：{e}')
+            raise e
 
     def image_match(self, data: dict):
         """
@@ -455,6 +462,7 @@ class Macro:
             self.match_image.match(target_image)
         except Exception as e:
             self.logger.error(f'功能 图像匹配 报错信息：{e}')
+            raise e
 
     def color_match(self, data: dict):
         """
@@ -467,6 +475,7 @@ class Macro:
             self.execute_macro(data['宏指令'])
         except Exception as e:
             self.logger.error(f'功能 颜色匹配 报错信息：{e}')
+            raise e
 
     def text_ocr(self, data: dict):
         """
@@ -479,6 +488,7 @@ class Macro:
             self.execute_macro(data['宏指令'])
         except Exception as e:
             self.logger.error(f'功能 文字识别 报错信息：{e}')
+            raise e
 
 
 #   --------------------------------------------------宏功能触发-------------------------------------------------

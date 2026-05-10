@@ -1,0 +1,70 @@
+.log-editor {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-align: left;
+}
+
+.editor-header {
+  width: 100%;
+  display: flex;
+  padding: 3px;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.file-title {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.log-editor[data-theme="dark"] .file-title {
+  color: #e0e0e0;
+}
+
+.log-editor[data-theme="light"] .file-title {
+  color: #1F2430;
+}
+
+.editor-container {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.codemirror-editor {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  text-align: left;
+}
+
+.codemirror-editor :deep(.cm-editor) {
+  width: 100%;
+  height: 100%;
+  cursor: text;
+}
+
+.codemirror-editor :deep(.cm-scroller) {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.codemirror-editor :deep(.cm-content) {
+  text-align: left;
+  cursor: text;
+}
+
+.codemirror-editor :deep(.cm-line) {
+  text-align: left;
+}

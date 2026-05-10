@@ -36,6 +36,7 @@ class FileManager:
                 self.config_path.mkdir(parents=True, exist_ok=True)
         except Exception as e:
             self.logger.error(f'加载配置文件 报错信息：{e}')
+            raise e
         finally:
             return self.config
 
@@ -53,7 +54,7 @@ class FileManager:
             return True
         except Exception as e:
             self.logger.error(f'保存配置文件 报错信息：{e}')
-            return False
+            raise e
 
     def get_macro_files(self):
         """
@@ -82,7 +83,7 @@ class FileManager:
             return macro_file
         except Exception as e:
             self.logger.error(f'加载宏文件 报错信息：{e}')
-            return False
+            raise e
 
     def save_macro_file(self, file_name: str, macro_file: str):
         """
@@ -100,7 +101,7 @@ class FileManager:
             Args:
                 macro_file (str): 宏文件内容文字
             Returns:
-                dict: 宏文件内容字典
+                dict | False: 宏文件内容字典 | False
             """
             try:
                 replacements = {
@@ -146,7 +147,7 @@ class FileManager:
             return macro_file
         except Exception as e:
             self.logger.error(f'保存宏文件 报错信息：{e}')
-            return False
+            raise e
 
     def create_new_file(self):
         """
@@ -163,7 +164,7 @@ class FileManager:
             self.logger.info(f'创建新文件：{new_file_name}')
         except Exception as e:
             self.logger.error(f'创建新文件 报错信息：{e}')
-            return False
+            raise e
 
     def rename_file(self, old_name: str, new_name: str):
         """
@@ -178,7 +179,7 @@ class FileManager:
             self.logger.info(f'重命名文件：{old_name} -> {new_name}')
         except Exception as e:
             self.logger.error(f'重命名文件 报错信息：{e}')
-            return False
+            raise e
 
     def open_folder(self, file_name: str):
         """
@@ -190,7 +191,7 @@ class FileManager:
             self.logger.info(f'打开文件夹：{file_name}')
         except Exception as e:
             self.logger.error(f'打开文件夹 报错信息：{e}')
-            return False
+            raise e
 
     def delete_file(self, file_name: str):
         """
@@ -201,8 +202,70 @@ class FileManager:
         try:
             file_path = self.macro_dir / f'{file_name}.json'
             file_path.unlink()
-            self.logger.info(f'删除文件：{file_name}')
+            self.logger.error(f'删除文件：{file_name}')
         except Exception as e:
             self.logger.error(f'删除文件 报错信息：{e}')
-            return False
+            raise e
 
+    def set_memory_handler(self, handler):
+        """
+            设置内存日志处理器
+        Args:
+            handler: MemoryLogHandler实例
+        """
+        self._memory_handler = handler
+
+    def get_memory_logs(self):
+        """
+            获取内存中的日志内容
+        Returns:
+            str: 日志内容
+        """
+        try:
+            if hasattr(self, '_memory_handler') and self._memory_handler:
+                return self._memory_handler.get_logs()
+            return '日志系统未初始化'
+        except Exception as e:
+            self.logger.error(f'获取内存日志 报错信息：{e}')
+            raise e
+
+    def clear_memory_logs(self):
+        """
+            清空内存中的日志
+        """
+        try:
+            if hasattr(self, '_memory_handler') and self._memory_handler:
+                self._memory_handler.clear_logs()
+                self.logger.info('清空内存日志')
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f'清空内存日志 报错信息：{e}')
+            raise e
+
+    def has_new_error(self):
+        """
+            检查是否有未读的错误
+        Returns:
+            bool: 是否有未读的错误
+        """
+        try:
+            if hasattr(self, '_memory_handler') and self._memory_handler:
+                return self._memory_handler.has_new_error()
+            return False
+        except Exception as e:
+            self.logger.error(f'检查新错误 报错信息：{e}')
+            raise e
+
+    def clear_new_error_flag(self):
+        """
+            清除新错误的标记
+        """
+        try:
+            if hasattr(self, '_memory_handler') and self._memory_handler:
+                self._memory_handler.clear_new_error_flag()
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f'清除错误标记 报错信息：{e}')
+            raise e

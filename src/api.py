@@ -1,5 +1,4 @@
 
-
 class Api:
     def __init__(self, logger, file_manager, macro):
         self.logger = logger
@@ -39,6 +38,18 @@ class Api:
 
     def delete_file(self, file_name: str):
         return self.file_manager.delete_file(file_name)
+
+    def get_memory_logs(self):
+        return self.file_manager.get_memory_logs()
+
+    def clear_memory_logs(self):
+        return self.file_manager.clear_memory_logs()
+
+    def has_new_error(self):
+        return self.file_manager.has_new_error()
+
+    def clear_new_error_flag(self):
+        return self.file_manager.clear_new_error_flag()
 
     def get_key_name(self):
         key_name = self.macro.get_key_name()
@@ -86,4 +97,5 @@ class Api:
             'get_config_file', 'save_config_file', 'get_key_name',
             'get_macro_files', 'load_macrofile', 'save_macrofile',
             'create_new_file', 'rename_file', 'open_folder', 'delete_file',
+            'get_memory_logs', 'clear_memory_logs', 'has_new_error', 'clear_new_error_flag',
         ]

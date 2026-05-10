@@ -4,6 +4,18 @@ import Jsoneditor from './Jsoneditor.vue'
 
 type Theme = 'light' | 'dark'
 
+const props = defineProps<{
+  initialSubView?: 'list' | 'editor'
+  initialFileName?: string
+  initialContent?: string
+}>()
+
+const emit = defineEmits<{
+  (e: 'updateSubView', view: 'list' | 'editor'): void
+  (e: 'updateFileName', fileName: string): void
+  (e: 'updateContent', content: string): void
+}>()
+
 const currentTheme = inject<Ref<Theme>>('theme')
 const macroFiles = ref<string[]>([])
 const hoveredButtons = ref<Record<string, string>>({})
@@ -44,6 +56,8 @@ async function loadMacroFiles() {
 
 async function openFile(fileName: string) {
   try {
+    // 清除所有tooltip状态
+    hoveredButtons.value = {}
     const content = await (window as any).pywebview.api.load_macrofile(fileName)
     currentFileName.value = fileName
     if (typeof content === 'object') {
@@ -52,15 +66,29 @@ async function openFile(fileName: string) {
       editorContent.value = content || ''
     }
     currentView.value = 'editor'
+    emit('updateSubView', 'editor')
+    emit('updateFileName', currentFileName.value)
+    emit('updateContent', editorContent.value)
   } catch (e) {
     console.error('Failed to open file:', e)
   }
 }
 
 function goBack() {
+  // 清除所有tooltip状态
+  hoveredButtons.value = {}
   currentView.value = 'list'
   currentFileName.value = ''
   editorContent.value = ''
+  emit('updateSubView', 'list')
+  emit('updateFileName', '')
+  emit('updateContent', '')
+}
+
+// 监听编辑器内容变化，同步到父组件
+function handleEditorContentUpdate(content: string) {
+  editorContent.value = content
+  emit('updateContent', content)
 }
 
 async function openFolder(fileName: string) {
@@ -137,6 +165,16 @@ async function createNewFile() {
 
 onMounted(() => {
   loadMacroFiles()
+  // 组件挂载时恢复保存的状态
+  if (props.initialSubView) {
+    currentView.value = props.initialSubView
+  }
+  if (props.initialFileName) {
+    currentFileName.value = props.initialFileName
+  }
+  if (props.initialContent) {
+    editorContent.value = props.initialContent
+  }
 })
 </script>
 
@@ -274,7 +312,7 @@ onMounted(() => {
         :fileName="currentFileName"
         :content="editorContent"
         @back="goBack"
-        @update:content="editorContent = $event"
+        @update:content="handleEditorContentUpdate"
       />
     </template>
 

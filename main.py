@@ -10,6 +10,49 @@ from src.api import Api
 from src.macro import Macro
 from src.file_manager import FileManager
 
+# 自定义日志Handler，用于捕获日志到内存
+class MemoryLogHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.logs = []
+        self.max_logs = 1000  # 最多保存1000条日志
+        self._has_new_error = False
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.logs.append(msg)
+            # 检测是否是 error 或更高级别的日志
+            if record.levelno >= logging.ERROR:
+                self._has_new_error = True
+            # 限制日志数量
+            if len(self.logs) > self.max_logs:
+                self.logs = self.logs[-self.max_logs:]
+        except Exception:
+            self.handleError(record)
+
+    def get_logs(self):
+        return '\n'.join(self.logs)
+
+    def clear_logs(self):
+        self.logs = []
+        self._has_new_error = False
+
+    def has_new_error(self):
+        """检查是否有新的错误
+        Returns:
+            bool: 是否有未读的错误
+        """
+        return self._has_new_error
+
+    def clear_new_error_flag(self):
+        """清除新错误的标记
+        """
+        self._has_new_error = False
+
+# 全局内存日志Handler实例
+memory_handler = MemoryLogHandler()
+
 
 def setup_logging():
     """
@@ -31,6 +74,9 @@ def setup_logging():
     # 设置日志文件名
     log_filename = path / f'{datetime.now().strftime(date_format)}.log'
 
+    # 配置内存handler的格式
+    memory_handler.setFormatter(logging.Formatter(log_format, datefmt=date_format))
+
     # 配置日志系统
     logging.basicConfig(
         level=logging.INFO,
@@ -38,7 +84,8 @@ def setup_logging():
         datefmt=date_format,
         handlers=[
             logging.FileHandler(log_filename, encoding='utf-8'),
-            logging.StreamHandler()
+            logging.StreamHandler(),
+            memory_handler
         ]
     )
 
@@ -50,6 +97,7 @@ class AutoGameApp:
         self.logger = setup_logging()
         self.macro = Macro(self.logger)
         self.file_manager = FileManager(self.logger, self.macro)
+        self.file_manager.set_memory_handler(memory_handler)
         self.api = Api(self.logger, self.file_manager, self.macro)
 
         self.is_frozen = getattr(sys, 'frozen', False)
