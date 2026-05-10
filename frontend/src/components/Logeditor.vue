@@ -24,6 +24,7 @@ function getExtensions() {
     basicSetup,
     EditorState.readOnly.of(true),
     EditorView.editable.of(false),
+    EditorView.lineWrapping,
   ]
 
   if (currentTheme?.value === 'dark') {

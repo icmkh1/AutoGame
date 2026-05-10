@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, watch, inject, type Ref } from 'vue'
 import { EditorView } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { json } from '@codemirror/lang-json'
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { HighlightStyle, syntaxHighlighting, indentUnit } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { keymap } from '@codemirror/view'
 import { defaultKeymap, indentWithTab } from '@codemirror/commands'
@@ -60,6 +60,9 @@ function getExtensions() {
   const extensions = [
     basicSetup,
     languageCompartment.of(json()),
+    EditorState.tabSize.of(4),
+    indentUnit.of('    '),
+    EditorView.lineWrapping,
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
         emit('update:content', update.state.doc.toString())

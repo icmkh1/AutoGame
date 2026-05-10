@@ -160,4 +160,13 @@
   text-align: left;
 }
 
+.codemirror-editor :deep(.cm-scroller) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.codemirror-editor :deep(.cm-scroller::-webkit-scrollbar) {
+  display: none;
+}
+
 

@@ -140,6 +140,7 @@ class FileManager:
                 return False
 
         try:
+            self.logger.info(f'保存宏文件：{file_name}')
             file_path = self.macro_dir / f'{file_name}.json'
             macro_file = preprocess_file(macro_file)
             save_file(macro_file, file_path)
@@ -159,9 +160,9 @@ class FileManager:
                 if f'新建文件{i}' not in self.file_list:
                     new_file_name = f'新建文件{i}'
                     break
+            self.logger.info(f'创建新文件：{new_file_name}')
             with open(self.macro_dir / f'{new_file_name}.json', 'w', encoding='utf-8') as f:
                 json.dump(self.new_file_content, f, ensure_ascii=False, indent=4)
-            self.logger.info(f'创建新文件：{new_file_name}')
         except Exception as e:
             self.logger.error(f'创建新文件 报错信息：{e}')
             return False
@@ -174,9 +175,9 @@ class FileManager:
             new_name (str): 新文件名(不包含扩展名)
         """
         try:
+            self.logger.info(f'重命名文件：{old_name} -> {new_name}')
             file_path = self.macro_dir / f'{old_name}.json'
             file_path.rename(self.macro_dir / f'{new_name}.json')
-            self.logger.info(f'重命名文件：{old_name} -> {new_name}')
         except Exception as e:
             self.logger.error(f'重命名文件 报错信息：{e}')
             return False
@@ -186,9 +187,9 @@ class FileManager:
             打开文件夹
         """
         try:
+            self.logger.info(f'打开文件夹：{file_name}')
             file_path = self.macro_dir / f'{file_name}.json'
             subprocess.run(['explorer', f'/select,{file_path}'])
-            self.logger.info(f'打开文件夹：{file_name}')
         except Exception as e:
             self.logger.error(f'打开文件夹 报错信息：{e}')
             return False
@@ -200,9 +201,9 @@ class FileManager:
             file_name (str): 宏文件文件名(不包含扩展名)
         """
         try:
+            self.logger.info(f'删除文件：{file_name}')
             file_path = self.macro_dir / f'{file_name}.json'
             file_path.unlink()
-            self.logger.error(f'删除文件：{file_name}')
         except Exception as e:
             self.logger.error(f'删除文件 报错信息：{e}')
             return False
