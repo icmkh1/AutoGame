@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 0px;
+  padding: 0;
   box-sizing: border-box;
   overflow: hidden;
   text-align: left;
@@ -12,8 +12,7 @@
 
 .editor-header {
   width: 100%;
-  margin-bottom: 8px;
-  margin-top: 8px;
+  margin: 8px 0;
 }
 
 .header-line {
@@ -30,59 +29,7 @@
   gap: 16px;
 }
 
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.json-editor[data-theme="dark"] .back-btn {
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #e0e0e0;
-}
-
-.json-editor[data-theme="light"] .back-btn {
-  background-color: rgba(0, 0, 0, 0.1);
-  color: #1F2430;
-}
-
-.back-btn:hover {
-  transform: translateY(-1px);
-}
-
-.json-editor[data-theme="dark"] .back-btn:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-}
-
-.json-editor[data-theme="light"] .back-btn:hover {
-  background-color: rgba(0, 0, 0, 0.15);
-}
-
-.back-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* .file-title {
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.json-editor[data-theme="dark"] .file-title {
-  color: #e0e0e0;
-}
-
-.json-editor[data-theme="light"] .file-title {
-  color: #1F2430;
-} */
-
+.back-btn,
 .save-btn {
   display: flex;
   align-items: center;
@@ -96,24 +43,38 @@
   transition: all 0.2s;
 }
 
+.back-btn {
+  padding: 6px 8px;
+}
+
+.back-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.back-btn:hover,
+.save-btn:hover {
+  transform: translateY(-1px);
+}
+
+.json-editor[data-theme="dark"] .back-btn,
 .json-editor[data-theme="dark"] .save-btn {
   background-color: rgba(255, 255, 255, 0.1);
   color: #e0e0e0;
 }
 
+.json-editor[data-theme="dark"] .back-btn:hover,
+.json-editor[data-theme="dark"] .save-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.json-editor[data-theme="light"] .back-btn,
 .json-editor[data-theme="light"] .save-btn {
   background-color: rgba(0, 0, 0, 0.1);
   color: #1F2430;
 }
 
-.save-btn:hover {
-  transform: translateY(-1px);
-}
-
-.json-editor[data-theme="dark"] .save-btn:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-}
-
+.json-editor[data-theme="light"] .back-btn:hover,
 .json-editor[data-theme="light"] .save-btn:hover {
   background-color: rgba(0, 0, 0, 0.15);
 }
@@ -154,6 +115,12 @@
   font-size: 14px;
   line-height: 1.6;
   text-align: left;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.codemirror-editor :deep(.cm-scroller::-webkit-scrollbar) {
+  display: none;
 }
 
 .codemirror-editor :deep(.cm-content) {
@@ -165,17 +132,65 @@
   text-align: left;
 }
 
-.codemirror-editor :deep(.cm-scroller) {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.codemirror-editor :deep(.cm-scroller::-webkit-scrollbar) {
-  display: none;
-}
-
-.codemirror-editor :deep(.cm-content ::selection) {
+.json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-content ::selection) {
   background-color: rgba(134, 152, 196, 0.3) !important;
+}
+
+.json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-editor) {
+  background-color: rgba(54, 58, 69, 0.3);
+  color: #e0e0e0;
+  caret-color: #ffffff !important;
+}
+
+.json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-editor .cm-content) {
+  caret-color: #ffffff !important;
+}
+
+.json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-gutters) {
+  background-color: rgba(255, 255, 255, 0.02);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  color: #888;
+}
+
+.json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-activeLineGutter) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-activeLine) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-cursor) {
+  border-left-color: #ffffff !important;
+  border-left-width: 2px !important;
+}
+
+.json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-focused .cm-cursor) {
+  border-left-color: #ffffff !important;
+  border-left-width: 2px !important;
+}
+
+.json-editor[data-theme="light"] .codemirror-editor :deep(.cm-editor) {
+  background-color: rgba(0, 0, 0, 0.03);
+  color: #1F2430;
+}
+
+.json-editor[data-theme="light"] .codemirror-editor :deep(.cm-content ::selection) {
+  background-color: rgba(134, 152, 196, 0.5) !important;
+}
+
+.json-editor[data-theme="light"] .codemirror-editor :deep(.cm-gutters) {
+  background-color: rgba(0, 0, 0, 0.02);
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  color: #888;
+}
+
+.json-editor[data-theme="light"] .codemirror-editor :deep(.cm-activeLineGutter) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.json-editor[data-theme="light"] .codemirror-editor :deep(.cm-activeLine) {
+  background-color: rgba(0, 0, 0, 0.03);
 }
 
 .tool-inputs {
@@ -186,6 +201,7 @@
 
 .tool-input {
   width: 120px;
+  height: 32px;
   padding: 8px 14px;
   border: none;
   border-radius: 6px;
@@ -193,7 +209,6 @@
   font-weight: 500;
   text-align: center;
   cursor: pointer;
-  height: 32px;
   box-sizing: border-box;
   outline: none;
   transition: all 0.2s;
@@ -217,5 +232,3 @@
   transform: scale(1.05);
   box-shadow: 0 0 12px rgba(74, 80, 96, 0.5);
 }
-
-

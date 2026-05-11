@@ -125,81 +125,13 @@ function getExtensions() {
     indentUnit.of('    '),
     EditorView.lineWrapping,
     editableCompartment.of([]),
+    themeCompartment.of(syntaxHighlighting(currentTheme?.value === 'dark' ? darkHighlightStyle : lightHighlightStyle)),
     EditorView.updateListener.of((update) => {
       if (update.docChanged) {
         emit('update:content', update.state.doc.toString())
       }
     }),
   ]
-
-  if (currentTheme?.value === 'dark') {
-    extensions.push(themeCompartment.of([
-      syntaxHighlighting(darkHighlightStyle),
-      EditorView.theme({
-                '&': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  color: '#e0e0e0',
-                  borderRadius: '6px',
-                },
-                '.cm-content': {
-                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
-                  fontSize: '14px',
-                  lineHeight: '1.6',
-                  textAlign: 'left',
-                  caretColor: '#ffffff',
-                },
-                '.cm-line': {
-                  textAlign: 'left',
-                },
-                '.cm-gutters': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                  borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#888',
-                },
-                '.cm-activeLineGutter': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                },
-                '.cm-activeLine': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                },
-                '&.cm-focused .cm-cursor': {
-                  borderLeftColor: '#ffffff',
-                  borderLeftWidth: '2px',
-                },
-              }),
-    ]))
-  } else {
-    extensions.push(themeCompartment.of([
-      syntaxHighlighting(lightHighlightStyle),
-      EditorView.theme({
-        '&': {
-          backgroundColor: 'rgba(0, 0, 0, 0.03)',
-          color: '#1F2430',
-          borderRadius: '6px',
-        },
-        '.cm-content': {
-          fontFamily: 'Consolas, Monaco, Courier New, monospace',
-          fontSize: '14px',
-          lineHeight: '1.6',
-          textAlign: 'left',
-        },
-        '.cm-line': {
-          textAlign: 'left',
-        },
-        '.cm-gutters': {
-          backgroundColor: 'rgba(0, 0, 0, 0.02)',
-          borderRight: '1px solid rgba(0, 0, 0, 0.1)',
-          color: '#888',
-        },
-        '.cm-activeLineGutter': {
-          backgroundColor: 'rgba(0, 0, 0, 0.05)',
-        },
-        '.cm-activeLine': {
-          backgroundColor: 'rgba(0, 0, 0, 0.03)',
-        },
-      }),
-    ]))
-  }
 
   return extensions
 }
@@ -246,72 +178,7 @@ watch(() => currentTheme?.value, () => {
   if (editorView) {
     editorView.dispatch({
       effects: themeCompartment.reconfigure(
-        currentTheme?.value === 'dark'
-          ? [
-              syntaxHighlighting(darkHighlightStyle),
-              EditorView.theme({
-                '&': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  color: '#e0e0e0',
-                  borderRadius: '6px',
-                },
-                '.cm-content': {
-                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
-                  fontSize: '14px',
-                  lineHeight: '1.6',
-                  textAlign: 'left',
-                  caretColor: '#ffffff',
-                },
-                '.cm-line': {
-                  textAlign: 'left',
-                },
-                '.cm-gutters': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                  borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#888',
-                },
-                '.cm-activeLineGutter': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                },
-                '.cm-activeLine': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                },
-                '&.cm-focused .cm-cursor': {
-                  borderLeftColor: '#ffffff',
-                  borderLeftWidth: '2px',
-                },
-              }),
-            ]
-          : [
-              syntaxHighlighting(lightHighlightStyle),
-              EditorView.theme({
-                '&': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                  color: '#1F2430',
-                  borderRadius: '6px',
-                },
-                '.cm-content': {
-                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
-                  fontSize: '14px',
-                  lineHeight: '1.6',
-                  textAlign: 'left',
-                },
-                '.cm-line': {
-                  textAlign: 'left',
-                },
-                '.cm-gutters': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                  borderRight: '1px solid rgba(0, 0, 0, 0.1)',
-                  color: '#888',
-                },
-                '.cm-activeLineGutter': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                },
-                '.cm-activeLine': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                },
-              }),
-            ]
+        syntaxHighlighting(currentTheme?.value === 'dark' ? darkHighlightStyle : lightHighlightStyle)
       ),
     })
   }
