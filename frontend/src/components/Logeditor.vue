@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, inject, type Ref } from 'vue'
+import { ref, onMounted, onUnmounted, inject, type Ref } from 'vue'
 import { EditorView } from '@codemirror/view'
-import { EditorState, Compartment } from '@codemirror/state'
+import { EditorState } from '@codemirror/state'
 import { keymap } from '@codemirror/view'
 import { defaultKeymap, indentWithTab } from '@codemirror/commands'
 
@@ -16,7 +16,6 @@ const currentTheme = inject<Ref<Theme>>('theme')
 
 const editorRef = ref<HTMLDivElement | null>(null)
 let editorView: EditorView | null = null
-const themeCompartment = new Compartment()
 let pollInterval: number | null = null
 
 function getExtensions() {
@@ -26,97 +25,6 @@ function getExtensions() {
     EditorView.editable.of(false),
     EditorView.lineWrapping,
   ]
-
-  if (currentTheme?.value === 'dark') {
-    extensions.push(themeCompartment.of([
-      EditorView.theme({
-        '&': {
-          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-          color: '#e0e0e0',
-          borderRadius: '6px',
-        },
-        '.cm-content': {
-          fontFamily: 'Consolas, Monaco, Courier New, monospace',
-          fontSize: '14px',
-          lineHeight: '1.6',
-          textAlign: 'left',
-          caretColor: 'transparent',
-          userSelect: 'text',
-        },
-        '.cm-line': {
-          textAlign: 'left',
-          userSelect: 'text',
-        },
-        '.cm-gutters': {
-          backgroundColor: 'rgba(255, 255, 255, 0.02)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-          color: '#888',
-        },
-        '.cm-activeLineGutter': {
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        },
-        '.cm-activeLine': {
-          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        },
-        '.cm-selectionMatch': {
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        },
-        '&.cm-focused .cm-selectionBackground': {
-          backgroundColor: 'rgba(100, 150, 255, 0.3)',
-        },
-        '.cm-selectionBackground': {
-          backgroundColor: 'rgba(100, 150, 255, 0.2)',
-        },
-        '&.cm-focused .cm-cursor': {
-          display: 'none',
-        },
-      }),
-    ]))
-  } else {
-    extensions.push(themeCompartment.of([
-      EditorView.theme({
-        '&': {
-          backgroundColor: 'rgba(0, 0, 0, 0.03)',
-          color: '#1F2430',
-          borderRadius: '6px',
-        },
-        '.cm-content': {
-          fontFamily: 'Consolas, Monaco, Courier New, monospace',
-          fontSize: '14px',
-          lineHeight: '1.6',
-          textAlign: 'left',
-          userSelect: 'text',
-        },
-        '.cm-line': {
-          textAlign: 'left',
-          userSelect: 'text',
-        },
-        '.cm-gutters': {
-          backgroundColor: 'rgba(0, 0, 0, 0.02)',
-          borderRight: '1px solid rgba(0, 0, 0, 0.1)',
-          color: '#888',
-        },
-        '.cm-activeLineGutter': {
-          backgroundColor: 'rgba(0, 0, 0, 0.05)',
-        },
-        '.cm-activeLine': {
-          backgroundColor: 'rgba(0, 0, 0, 0.03)',
-        },
-        '.cm-selectionMatch': {
-          backgroundColor: 'rgba(100, 150, 255, 0.2)',
-        },
-        '&.cm-focused .cm-selectionBackground': {
-          backgroundColor: 'rgba(100, 150, 255, 0.3)',
-        },
-        '.cm-selectionBackground': {
-          backgroundColor: 'rgba(100, 150, 255, 0.2)',
-        },
-        '&.cm-focused .cm-cursor': {
-          display: 'none',
-        },
-      }),
-    ]))
-  }
 
   return extensions
 }
@@ -171,103 +79,6 @@ onUnmounted(() => {
   editorView = null
   if (pollInterval !== null) {
     clearInterval(pollInterval)
-  }
-})
-
-watch(() => currentTheme?.value, () => {
-  if (editorView) {
-    editorView.dispatch({
-      effects: themeCompartment.reconfigure(
-        currentTheme?.value === 'dark'
-          ? [
-              EditorView.theme({
-                '&': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  color: '#e0e0e0',
-                  borderRadius: '6px',
-                },
-                '.cm-content': {
-                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
-                  fontSize: '14px',
-                  lineHeight: '1.6',
-                  textAlign: 'left',
-                  caretColor: 'transparent',
-                  userSelect: 'text',
-                },
-                '.cm-line': {
-                  textAlign: 'left',
-                  userSelect: 'text',
-                },
-                '.cm-gutters': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                  borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#888',
-                },
-                '.cm-activeLineGutter': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                },
-                '.cm-activeLine': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                },
-                '.cm-selectionMatch': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                },
-                '&.cm-focused .cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.3)',
-                },
-                '.cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
-                },
-                '&.cm-focused .cm-cursor': {
-                  display: 'none',
-                },
-              }),
-            ]
-          : [
-              EditorView.theme({
-                '&': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                  color: '#1F2430',
-                  borderRadius: '6px',
-                },
-                '.cm-content': {
-                  fontFamily: 'Consolas, Monaco, Courier New, monospace',
-                  fontSize: '14px',
-                  lineHeight: '1.6',
-                  textAlign: 'left',
-                  userSelect: 'text',
-                },
-                '.cm-line': {
-                  textAlign: 'left',
-                  userSelect: 'text',
-                },
-                '.cm-gutters': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.02)',
-                  borderRight: '1px solid rgba(0, 0, 0, 0.1)',
-                  color: '#888',
-                },
-                '.cm-activeLineGutter': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                },
-                '.cm-activeLine': {
-                  backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                },
-                '.cm-selectionMatch': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
-                },
-                '&.cm-focused .cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.3)',
-                },
-                '.cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
-                },
-                '&.cm-focused .cm-cursor': {
-                  display: 'none',
-                },
-              }),
-            ]
-      ),
-    })
   }
 })
 </script>

@@ -137,7 +137,7 @@
 }
 
 .json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-editor) {
-  background-color: rgba(54, 58, 69, 0.3);
+  background-color: rgba(255, 255, 255, 0.05);
   color: #e0e0e0;
   caret-color: #ffffff !important;
 }
@@ -171,7 +171,7 @@
 }
 
 .json-editor[data-theme="light"] .codemirror-editor :deep(.cm-editor) {
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: rgba(0, 0, 0, 0.06);
   color: #1F2430;
 }
 

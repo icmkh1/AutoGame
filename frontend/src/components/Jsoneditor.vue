@@ -365,7 +365,6 @@ function enableEditor() {
             </svg>
             <span>返回</span>
           </button>
-          <!-- <span class="file-title">{{ fileName }}</span> -->
         </div>
         <div class="tool-inputs">
           <input

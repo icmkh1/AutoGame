@@ -78,3 +78,92 @@
 .codemirror-editor :deep(.cm-scroller::-webkit-scrollbar) {
   display: none;
 }
+
+.log-editor[data-theme="dark"] :deep(.cm-editor) {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #e0e0e0;
+  border-radius: 6px;
+}
+
+.log-editor[data-theme="dark"] :deep(.cm-content) {
+  caret-color: transparent;
+  user-select: text;
+}
+
+.log-editor[data-theme="dark"] :deep(.cm-line) {
+  user-select: text;
+}
+
+.log-editor[data-theme="dark"] :deep(.cm-gutters) {
+  background-color: rgba(255, 255, 255, 0.02);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  color: #888;
+}
+
+.log-editor[data-theme="dark"] :deep(.cm-activeLineGutter) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.log-editor[data-theme="dark"] :deep(.cm-activeLine) {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.log-editor[data-theme="dark"] :deep(.cm-selectionMatch) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.log-editor[data-theme="dark"] :deep(.cm-focused .cm-selectionBackground) {
+  background-color: rgba(100, 150, 255, 0.3);
+}
+
+.log-editor[data-theme="dark"] :deep(.cm-selectionBackground) {
+  background-color: rgba(100, 150, 255, 0.2);
+}
+
+.log-editor[data-theme="dark"] :deep(.cm-focused .cm-cursor) {
+  display: none;
+}
+
+.log-editor[data-theme="light"] :deep(.cm-editor) {
+  background-color: rgba(0, 0, 0, 0.06);
+  color: #1F2430;
+  border-radius: 6px;
+}
+
+.log-editor[data-theme="light"] :deep(.cm-content) {
+  user-select: text;
+}
+
+.log-editor[data-theme="light"] :deep(.cm-line) {
+  user-select: text;
+}
+
+.log-editor[data-theme="light"] :deep(.cm-gutters) {
+  background-color: rgba(0, 0, 0, 0.02);
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  color: #888;
+}
+
+.log-editor[data-theme="light"] :deep(.cm-activeLineGutter) {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.log-editor[data-theme="light"] :deep(.cm-activeLine) {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.log-editor[data-theme="light"] :deep(.cm-selectionMatch) {
+  background-color: rgba(100, 150, 255, 0.2);
+}
+
+.log-editor[data-theme="light"] :deep(.cm-focused .cm-selectionBackground) {
+  background-color: rgba(100, 150, 255, 0.3);
+}
+
+.log-editor[data-theme="light"] :deep(.cm-selectionBackground) {
+  background-color: rgba(100, 150, 255, 0.2);
+}
+
+.log-editor[data-theme="light"] :deep(.cm-focused .cm-cursor) {
+  display: none;
+}
