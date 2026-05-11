@@ -512,7 +512,17 @@ class Macro:
                 self.logger.error(f'功能 图像匹配 错误信息：图像文件不存在，当前数据：{data}')
                 return
 
-            self.match_image.match(target_image)
+            screen_width, screen_height = self.get_screen_size()
+            rect = (0, 0, screen_width, screen_height) if '匹配范围' not in data else \
+                tuple(map(int, data['匹配范围'].strip().split()))
+            similarity = 0.8 if '相似度' not in data else float(data['相似度'])
+
+            target_image = self.match_image.read_image(target_image)
+            (x, y), sim = self.match_image.match(target_image, rect, similarity)
+            if sim >= similarity and '分支Y' in data:
+                self.execute_macro(f'移动 {x} {y},{data["分支Y"]}')
+            elif sim < similarity and '分支N' in data:
+                self.execute_macro(data['分支N'])
         except Exception as e:
             self.logger.error(f'功能 图像匹配 报错信息：{e}')
             raise e
@@ -525,7 +535,39 @@ class Macro:
         """
         self.logger.info(f'功能 颜色匹配 data：{data}')
         try:
-            self.execute_macro(data['宏指令'])
+            if '颜色' not in data:
+                self.logger.error(f'功能 颜色匹配 错误信息：颜色缺失，当前数据：{data}')
+                return
+            if '坐标' not in data:
+                self.logger.error(f'功能 颜色匹配 错误信息：坐标缺失，当前数据：{data}')
+                return
+
+            color_list = data['颜色'].strip().split(',')
+            coord_list = [tuple(map(int, i.split())) for i in \
+                [i.strip() for i in data['坐标'].strip().split(',')]]
+            if len(color_list) != len(coord_list):
+                self.logger.error(f'功能 颜色匹配 错误信息：颜色数量与坐标数量不一致，当前数据：{data}')
+                return
+
+            similarity = 0.8 if '相似度' not in data else float(data['相似度'])
+            pattern = 'all' if '模式' not in data else data['模式']
+            if pattern not in ['all', 'any']:
+                self.logger.error(f'功能 颜色匹配 错误信息：模式参数错误，预期all或any，当前数据：{data}')
+                return
+
+            flag = False
+            for _, (coord, color) in enumerate(zip(coord_list, color_list)):
+                result, sim = self.match_color.match(coord, color, similarity)
+                flag = result
+                if flag and pattern == 'any':
+                    break
+                elif not flag and pattern == 'all':
+                    break
+
+            if flag and '分支Y' in data:
+                self.execute_macro(data['分支Y'])
+            elif not flag and '分支N' in data:
+                self.execute_macro(data['分支N'])
         except Exception as e:
             self.logger.error(f'功能 颜色匹配 报错信息：{e}')
             raise e
