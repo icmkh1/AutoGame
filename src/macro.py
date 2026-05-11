@@ -2,9 +2,8 @@ import time
 import ctypes
 from pathlib import Path
 from threading import Thread
-from autoxkit import (HookListener, MouseEvent, KeyEvent,
-                    Mouse, KeyBoard, MatchColor, MatchImage,
-                    Hex_Key_Code)
+from autoxkit import (HookListener, HotkeyListener, MouseEvent, KeyEvent,
+                    Mouse, KeyBoard, MatchColor, MatchImage, Hex_Key_Code)
 
 HKC = Hex_Key_Code
 
@@ -53,12 +52,15 @@ class Macro:
         self.keyboard = KeyBoard()
         self.match_color = MatchColor()
         self.match_image = MatchImage()
+
         self.hook_listener = HookListener()
         self.hook_listener.add_handler('keydown', self._hook_all_down)
         self.hook_listener.add_handler('keyup', self._hook_all_up)
         self.hook_listener.add_handler('mousedown', self._hook_all_down)
         self.hook_listener.add_handler('mouseup', self._hook_all_up)
 
+        self.hotkey_listener = HotkeyListener(self.hook_listener)
+        self.hotkey_listener.add_hotkey('保存', ['Lctrl', 'S'], lambda: self.api.save_json_file())
 
 #   --------------------------------------------------监听器控制-------------------------------------------------
 

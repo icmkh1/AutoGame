@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "autoxkit>=0.8.0",
+    "autoxkit>=0.9.0",
     "numpy<2.0.0",
     "onnxruntime-gpu==1.14.1",
     "opencv-contrib-python==4.7.0.72",

@@ -109,6 +109,10 @@ class Api:
         if self._window:
             self._window.evaluate_js('window.enableJsonEditor()')
 
+    def save_json_file(self):
+        if self._window:
+            self._window.evaluate_js('window.saveFile()')
+
     def __dir__(self):
         return [
             'get_app_info', 'minimize', 'close', 'toggle_maximize',
@@ -117,5 +121,5 @@ class Api:
             'get_macro_files', 'load_macrofile', 'save_macrofile',
             'create_new_file', 'rename_file', 'open_folder', 'delete_file',
             'get_memory_logs', 'clear_memory_logs', 'has_new_error', 'clear_new_error_flag',
-            'disable_json_editor', 'enable_json_editor',
+            'disable_json_editor', 'enable_json_editor', 'save_json_file',
         ]

@@ -222,13 +222,6 @@ function getExtensions() {
   return extensions
 }
 
-function handleKeydown(event: KeyboardEvent) {
-  if (event.ctrlKey && event.key === 's') {
-    event.preventDefault()
-    saveFile()
-  }
-}
-
 onMounted(() => {
   if (editorRef.value) {
     editorView = new EditorView({
@@ -239,7 +232,6 @@ onMounted(() => {
       parent: editorRef.value,
     })
   }
-  window.addEventListener('keydown', handleKeydown)
   window.addEventListener('keydown', handleKeyPressStop)
   window.addEventListener('mousedown', handleMouseClickStop)
   window.addEventListener('blur', handleWindowBlur)
@@ -251,7 +243,6 @@ onUnmounted(() => {
     editorView = null
   }
   stopAllListening()
-  window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keydown', handleKeyPressStop)
   window.removeEventListener('mousedown', handleMouseClickStop)
   window.removeEventListener('blur', handleWindowBlur)
@@ -524,6 +515,7 @@ function enableEditor() {
 
 ;(window as any).disableJsonEditor = disableEditor
 ;(window as any).enableJsonEditor = enableEditor
+;(window as any).saveFile = saveFile
 </script>
 
 <style src="./Jsoneditor.css" scoped></style>
