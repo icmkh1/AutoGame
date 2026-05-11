@@ -162,15 +162,6 @@ function getExtensions() {
                 '.cm-activeLine': {
                   backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 },
-                '.cm-selectionMatch': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                },
-                '&.cm-focused .cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.3)',
-                },
-                '.cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
-                },
                 '&.cm-focused .cm-cursor': {
                   borderLeftColor: '#ffffff',
                   borderLeftWidth: '2px',
@@ -205,15 +196,6 @@ function getExtensions() {
         },
         '.cm-activeLine': {
           backgroundColor: 'rgba(0, 0, 0, 0.03)',
-        },
-        '.cm-selectionMatch': {
-          backgroundColor: 'rgba(100, 150, 255, 0.2)',
-        },
-        '&.cm-focused .cm-selectionBackground': {
-          backgroundColor: 'rgba(100, 150, 255, 0.3)',
-        },
-        '.cm-selectionBackground': {
-          backgroundColor: 'rgba(100, 150, 255, 0.2)',
         },
       }),
     ]))
@@ -294,15 +276,6 @@ watch(() => currentTheme?.value, () => {
                 '.cm-activeLine': {
                   backgroundColor: 'rgba(255, 255, 255, 0.05)',
                 },
-                '.cm-selectionMatch': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                },
-                '&.cm-focused .cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.3)',
-                },
-                '.cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
-                },
                 '&.cm-focused .cm-cursor': {
                   borderLeftColor: '#ffffff',
                   borderLeftWidth: '2px',
@@ -336,15 +309,6 @@ watch(() => currentTheme?.value, () => {
                 },
                 '.cm-activeLine': {
                   backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                },
-                '.cm-selectionMatch': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
-                },
-                '&.cm-focused .cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.3)',
-                },
-                '.cm-selectionBackground': {
-                  backgroundColor: 'rgba(100, 150, 255, 0.2)',
                 },
               }),
             ]
