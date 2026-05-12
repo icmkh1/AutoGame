@@ -149,6 +149,7 @@
 .json-editor[data-theme="dark"] .codemirror-editor :deep(.cm-gutters) {
   background-color: rgba(255, 255, 255, 0.02);
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  min-width: 28px;
   color: #888;
 }
 
@@ -182,6 +183,7 @@
 .json-editor[data-theme="light"] .codemirror-editor :deep(.cm-gutters) {
   background-color: rgba(0, 0, 0, 0.02);
   border-right: 1px solid rgba(0, 0, 0, 0.1);
+  min-width: 28px;
   color: #888;
 }
 

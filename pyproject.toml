@@ -1,11 +1,17 @@
 [project]
 name = "AutoGame"
-version = "0.7.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "一个基于 Python 的键鼠自动化工具，支持多种宏功能类型，可通过 JSON 配置文件进行配置。系统支持热键触发、图像匹配、颜色匹配、文字识别等功能。"
 readme = "README.md"
 requires-python = ">=3.10"
+license = {text = "GPL-3.0-or-later"}
+
+authors = [
+  {name = "YorickFin", email = "1582456060@qq.com"},
+]
+
 dependencies = [
-    "autoxkit>=0.9.0",
+    "autoxkit>=1.0.0",
     "numpy<2.0.0",
     "onnxruntime-gpu==1.14.1",
     "opencv-contrib-python==4.7.0.72",
@@ -17,3 +23,7 @@ dependencies = [
     "shapely>=2.1.2",
     "tomli>=2.4.1",
 ]
+
+[urls]
+homepage = "https://github.com/YorickFin/AutoGame"
+instructions = "https://docs.qq.com/markdown/DVVdYSXNTcWpZZHNN?"

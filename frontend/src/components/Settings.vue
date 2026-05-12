@@ -5,7 +5,7 @@ type Theme = 'light' | 'dark'
 
 const currentTheme = inject<Ref<Theme>>('theme')
 const toggleTheme = inject<() => void>('toggleTheme')
-const appInfo = inject<Ref<{ name: string; version: string }>>('appInfo')
+const appInfo = inject<Ref<{ name: string; version: string; homepage: string; instructions: string }>>('appInfo')
 
 const minimizeToTray = ref(true)
 const macroSwitch = ref('F1')
@@ -89,6 +89,16 @@ function onMacroSwitchInput(event: Event) {
   target.value = macroSwitch.value
 }
 
+async function openUrl(url: string) {
+  try {
+    if ((window as any).pywebview && (window as any).pywebview.api) {
+      await (window as any).pywebview.api.open_url(url)
+    }
+  } catch (e) {
+    console.error('Failed to open url:', e)
+  }
+}
+
 async function pollForConfig() {
   const maxAttempts = 50
   let attempts = 0
@@ -160,6 +170,10 @@ onMounted(() => {
           />
         </div>
       </div>
+    </div>
+    <div class="action-buttons">
+      <button class="action-btn" @click="openUrl(appInfo?.homepage || '')">GitHub</button>
+      <button class="action-btn" @click="openUrl(appInfo?.instructions || '')">使用说明</button>
     </div>
     <div class="app-info">
       <span>{{ appInfo?.name }}  version: {{ appInfo?.version }}</span>

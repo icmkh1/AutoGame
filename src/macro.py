@@ -1,17 +1,23 @@
 import time
 import ctypes
-from pathlib import Path
 from threading import Thread
-from autoxkit import (HookListener, HotkeyListener, MouseEvent, KeyEvent,
-                    Mouse, KeyBoard, MatchColor, MatchImage, Hex_Key_Code)
+from autoxkit.hook import HookListener, HotkeyListener, MouseEvent, KeyEvent
+from autoxkit.mousekey import Mouse, KeyBoard
+from autoxkit.icmatch import MatchColor, MatchImage
+from autoxkit.constants import Hex_Key_Code
 
 HKC = Hex_Key_Code
 
 class Macro:
-    def __init__(self, logger, ocr):
+    def __init__(self, logger, ocr, path_manager):
         self.logger = logger
         self.ocr = ocr
         self.api = None
+
+        # 使用统一的路径管理器
+        self.path_manager = path_manager
+        self.base_res_path = self.path_manager.base_res_path
+        self.base_user_path = self.path_manager.base_user_path
 
         self.macro_switch = False
         self.macro_switch_key = None
@@ -47,6 +53,7 @@ class Macro:
         self.function_mapping_up = {
             '跟随': lambda data: self.follow(data, False)
         }
+        self.function_names = ['固定连击', '宏', '图像匹配', '颜色匹配', '文字识别']
 
         self.mouse = Mouse()
         self.keyboard = KeyBoard()
@@ -85,7 +92,7 @@ class Macro:
         """
             设置鼠标图标
         """
-        mouse_icon_path = Path(r'data\config\CursorNormal.cur')
+        mouse_icon_path = self.path_manager.cursor_path
         try:
             if mouse_icon_path.exists():
                 cursor = ctypes.windll.user32.LoadCursorFromFileW(str(mouse_icon_path))
@@ -127,7 +134,6 @@ class Macro:
         Args:
             key (str): 宏开关按键
         """
-        print(key)
         self.macro_switch_key = key
 
     def get_key_name(self):
@@ -185,7 +191,6 @@ class Macro:
                 if not action_list:
                     continue
                 len_al = len(action_list)
-
                 handler = self.commands.get(action_list[0], self._click)
                 handler(action_list, len_al)
         except Exception as e:
@@ -248,7 +253,20 @@ class Macro:
                     button = self.button_mapping[action_list[0]]
                     self.mouse.mouse_click(button=button)
                 else:
-                    self._raise_error(f'单击指令参数错误：{action_list}')
+                    function = None
+                    for data in self.macro_file:
+                        if '名称' not in data:
+                            continue
+                        elif data['名称'] == action_list[0]:
+                            function = self.function_mapping_down.get(
+                                data['功能类型'],
+                                lambda _: self.logger.error(f'功能 {data["功能类型"]} 不存在')
+                            )
+                            break
+                    if function:
+                        function(data)
+                    else:
+                        self._raise_error(f'单击指令参数错误：{action_list}')
             return True
         except Exception:
             self._raise_error(f'单击指令参数错误：{action_list}')
@@ -273,8 +291,8 @@ class Macro:
                 else:
                     self._raise_error(f'按键指令参数错误：{action_list}')
             elif len_al == 4:
-                x, y = int(action_list[1]), int(action_list[2])
-                button = self.button_mapping[action_list[0]]
+                x, y = int(action_list[2]), int(action_list[3])
+                button = self.button_mapping[action_list[1]]
                 self.mouse.mouse_down(x=x, y=y, button=button)
             return True
         except Exception:
@@ -300,8 +318,8 @@ class Macro:
                 else:
                     self._raise_error(f'弹起指令参数错误：{action_list}')
             elif len_al == 4:
-                x, y = int(action_list[1]), int(action_list[2])
-                button = self.button_mapping[action_list[0]]
+                x, y = int(action_list[2]), int(action_list[3])
+                button = self.button_mapping[action_list[1]]
                 self.mouse.mouse_up(x=x, y=y, button=button)
             return True
         except Exception:
@@ -357,10 +375,9 @@ class Macro:
         self.logger.info(f'功能 连击 data：{data}')
         try:
             sleep_time = round(1 / (int(data['每秒次数'])), 4)
-            if data['宏指令'] in HKC or data['宏指令'] in self.button_mapping:
-                while data['触发键'] in self.down_state_keys:
-                    self.execute_macro(data['宏指令'])
-                    time.sleep(sleep_time)
+            while data['触发键'] in self.down_state_keys:
+                self.execute_macro(data['宏指令'])
+                time.sleep(sleep_time)
         except Exception as e:
             self.logger.error(f'功能 连击 报错信息：{e}')
             raise e
@@ -376,7 +393,7 @@ class Macro:
             if '连击次数' in data and '连击间隔' in data:
                 for _ in range(int(data['连击次数'])):
                     self.execute_macro(data['宏指令'])
-                    time.sleep(int(data['连击间隔']))
+                    time.sleep(float(data['连击间隔']))
                 if '后置指令' in data:
                     self.execute_macro(data['后置指令'])
             else:
@@ -425,10 +442,13 @@ class Macro:
         """
         self.logger.info(f'功能 跟随 data：{data}')
         try:
+            instruct = data['宏指令'].split(',')
             if state:
-                self.execute_macro(f'按下 {data["宏指令"]}')
+                for macro in instruct:
+                    self.execute_macro(f'按下 {macro}')
             else:
-                self.execute_macro(f'弹起 {data["宏指令"]}')
+                for macro in instruct:
+                    self.execute_macro(f'弹起 {macro}')
         except Exception as e:
             self.logger.error(f'功能 跟随 报错信息：{e}')
             raise e
@@ -442,9 +462,10 @@ class Macro:
                 auxiliary (str): 已按下辅助键
                 auxiliary_n (str): 未按下辅助键
         """
+        print(args)
         key_mappings = {
-            '辅助': args[0],
-            '!辅助': args[1],
+            '!辅助': args[0][1],
+            '辅助': args[0][0],
         }
         self.logger.info(f'功能 组合 data：{data}')
         try:
@@ -480,10 +501,10 @@ class Macro:
                 mapping_n (str): 未按下映射键
         """
         key_mappings = {
-            '辅助': args[0],
-            '!辅助': args[1],
-            '映射': args[2],
-            '!映射': args[3],
+            '!辅助': args[0][1],
+            '辅助': args[0][0],
+            '!映射': args[0][3],
+            '映射': args[0][2],
         }
         self.logger.info(f'功能 映射 data：{data}')
         try:
@@ -507,7 +528,7 @@ class Macro:
                 self.logger.error(f'功能 图像匹配 错误信息：图像名称缺失，当前数据：{data}')
                 return
 
-            target_image = Path(r'data\target_image') / data['图像名称']
+            target_image = self.path_manager.target_image_dir / data['图像名称']
             if not target_image.exists():
                 self.logger.error(f'功能 图像匹配 错误信息：图像文件不存在，当前数据：{data}')
                 return
@@ -580,7 +601,43 @@ class Macro:
         """
         self.logger.info(f'功能 文字识别 data：{data}')
         try:
-            self.execute_macro(data['宏指令'])
+            if '识别文本' not in data:
+                self.logger.error(f'功能 文字识别 错误信息：识别文本缺失，当前数据：{data}')
+                return
+
+            pattern = 'all' if '模式' not in data else data['模式']
+            if pattern not in ['all', 'any']:
+                self.logger.error(f'功能 文字识别 错误信息：模式参数错误，预期all或any，当前数据：{data}')
+                return
+
+            screen_width, screen_height = self.get_screen_size()
+            rect = (0, 0, screen_width, screen_height) if '识别范围' not in data else \
+                tuple(map(int, data['识别范围'].strip().split()))
+
+            target_image = self.match_image.screenshot(rect)
+            ocr_result = self.ocr(target_image)
+
+            x, y, flag = 0, 0, False
+            for line in ocr_result:
+                if pattern == 'all':
+                    if line['text'] == data['识别文本']:
+                        dx, dy = line['center']
+                        x, y = dx + int(rect[0]), dy + int(rect[1])
+                        flag = True
+                        break
+                elif pattern == 'any':
+                    for line in ocr_result:
+                        for char in line['text']:
+                            if char in data['识别文本']:
+                                dx, dy = line['center']
+                                x, y = dx + int(rect[0]), dy + int(rect[1])
+                                flag = True
+                                break
+
+            if flag and '分支Y' in data:
+                self.execute_macro(f'移动 {x} {y},{data["分支Y"]}')
+            elif not flag and '分支N' in data:
+                self.execute_macro(data['分支N'])
         except Exception as e:
             self.logger.error(f'功能 文字识别 报错信息：{e}')
             raise e
@@ -602,6 +659,7 @@ class Macro:
                             lambda _: self.logger.error(f'功能 {data["功能类型"]} 不存在')
                         )
                         Thread(target=function, args=(data,)).start()
+                        return
 
                     elif self.key_name == data['触发键'] and data['功能类型'] in ['组合', '映射']:
                         if data['辅助1'] in self.down_state_keys:
@@ -623,10 +681,11 @@ class Macro:
                             lambda _, __: self.logger.error(f'功能 {data["功能类型"]} 不存在')
                         )
                         if data['功能类型'] == '组合':
-                            args = (data[auxiliary], data[auxiliary_n])
+                            args = data[auxiliary], data[auxiliary_n]
                         else:
-                            args = (data[auxiliary], data[auxiliary_n], data[mapping], data[mapping_n])
+                            args = data[auxiliary], data[auxiliary_n], data[mapping], data[mapping_n]
                         Thread(target=function, args=(data, args)).start()
+                        return
         except Exception as e:
             self.logger.error(f'功能 {data["功能类型"]} 报错信息：{e}')
             return False
@@ -641,7 +700,7 @@ class Macro:
             self.key_name = event.key_name
         elif isinstance(event, MouseEvent):
             self.key_name = event.button
-        print(self.key_name)
+        # self.logger.info(f'键鼠监听器 按键按下：{self.key_name}')
 
         # 宏开关切换
         if self.key_name == self.macro_switch_key and self.macro_file:
@@ -654,9 +713,10 @@ class Macro:
             else:
                 self.restore_mouse_icon()
 
-            # 宏开关切换时检查是否需要禁用编辑器
+            # 宏开关切换时检查是否需要禁用编辑器并保存文件
             if self.macro_switch and self.api:
                 self.api.disable_json_editor()
+                self.api.save_json_file()
             else:
                 self.api.enable_json_editor()
 
@@ -666,7 +726,6 @@ class Macro:
                 self._macro_trigger()
 
         return False
-
 
     def _hook_all_up(self, event: KeyEvent | MouseEvent):
         """
@@ -678,7 +737,7 @@ class Macro:
             self.key_name = event.key_name
         elif isinstance(event, MouseEvent):
             self.key_name = event.button
-        print(self.key_name)
+        # self.logger.info(f'键鼠监听器 按键弹起：{self.key_name}')
 
         # 宏功能触发
         if self.macro_switch and self.key_name in self.down_state_keys:

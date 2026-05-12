@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, inject, type Ref } from 'vue'
-import { EditorView } from '@codemirror/view'
+import { EditorView, lineNumbers } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { keymap } from '@codemirror/view'
 import { defaultKeymap, indentWithTab } from '@codemirror/commands'
@@ -21,6 +21,7 @@ let pollInterval: number | null = null
 function getExtensions() {
   const extensions = [
     basicSetup,
+    lineNumbers(),
     EditorState.readOnly.of(true),
     EditorView.editable.of(false),
     EditorView.lineWrapping,

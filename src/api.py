@@ -1,10 +1,13 @@
 
 
+import subprocess
+import sys
+
 class Api:
-    def __init__(self, logger, file_manager, macro):
+    def __init__(self, logger, macro, file_manager):
         self.logger = logger
-        self.file_manager = file_manager
         self.macro = macro
+        self.file_manager = file_manager
         self._no_key_names = ['MLeft', 'MRight', 'Middle', 'side1', 'side2']
 
         self._window = None
@@ -101,6 +104,19 @@ class Api:
                 return True
         return False
 
+    def open_url(self, url: str):
+        try:
+            if sys.platform == 'win32':
+                subprocess.run(['start', url], shell=True)
+            elif sys.platform == 'darwin':
+                subprocess.run(['open', url])
+            else:
+                subprocess.run(['xdg-open', url])
+            return True
+        except Exception as e:
+            self.logger.error(f'打开链接失败: {e}')
+            return False
+
     def disable_json_editor(self):
         if self._window:
             self._window.evaluate_js('window.disableJsonEditor()')
@@ -115,7 +131,7 @@ class Api:
 
     def __dir__(self):
         return [
-            'get_app_info', 'minimize', 'close', 'toggle_maximize',
+            'get_app_info', 'minimize', 'close', 'toggle_maximize', 'open_url',
             'get_config_file', 'save_config_file',
             'get_macro_switch_key_name', 'get_key_name', 'get_mouse_position', 'get_pixel_color',
             'get_macro_files', 'load_macrofile', 'save_macrofile',

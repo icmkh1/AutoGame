@@ -12,3 +12,4 @@ uv.lock
 debug.log
 debug.py
 logging/
+releases/

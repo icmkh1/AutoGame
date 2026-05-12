@@ -1,15 +1,20 @@
+import shutil
 import json
 import ast
 import tomli
 import subprocess
-from pathlib import Path
 
 
 class FileManager:
 
-    def __init__(self, logger, macro):
+    def __init__(self, logger, path_manager, macro):
         self.logger = logger
         self.macro = macro
+
+        # 使用统一的路径管理器
+        self.path_manager = path_manager
+        self.base_res_path = self.path_manager.base_res_path
+        self.base_user_path = self.path_manager.base_user_path
 
         self.file_list = []
         self.new_file_content = [
@@ -20,10 +25,33 @@ class FileManager:
                 '鼠标图标更改': '是'
             }
         ]
-        self.macro_dir = Path(r'data\macrofile')
+        # 宏文件目录
+        self.macro_dir = self.path_manager.macro_dir
+
         self.config = {}
-        self.config_path = Path(r'data\config\config.json')
-        self.pyproject_path = Path(r'pyproject.toml')
+        # 配置文件路径
+        self.config_path = self.path_manager.config_path
+        self._init_config()
+
+        self.pyproject_path = self.path_manager.pyproject_path
+
+    def _init_config(self):
+        """初始化配置文件"""
+        try:
+            if not self.config_path.exists():
+                # 工作目录没有配置文件，从资源目录复制
+                res_config_path = self.base_res_path / 'data' / 'config' / 'config.json'
+                self.config_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(res_config_path, self.config_path)
+
+                res_macrofile_dir = self.base_res_path / 'data' / 'macrofile' / 'A示例文件.json'
+                self.macro_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(res_macrofile_dir, self.macro_dir)
+
+                target_image = self.base_user_path / 'data' / 'target_image'
+                target_image.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            self.logger.error(f'初始化配置文件失败: {e}')
 
     def _load_project_info(self):
         try:
@@ -31,7 +59,9 @@ class FileManager:
                 data = tomli.load(f)
             return {
                 'name': data['project']['name'],
-                'version': data['project']['version']
+                'version': data['project']['version'],
+                'homepage': data['urls']['homepage'],
+                'instructions': data['urls']['instructions']
             }
         except Exception as e:
             self.logger.error(f'加载项目信息 报错信息：{e}')
@@ -158,6 +188,8 @@ class FileManager:
             self.logger.info(f'保存宏文件：{file_name}')
             file_path = self.macro_dir / f'{file_name}.json'
             macro_file = preprocess_file(macro_file)
+            if not macro_file:
+                return False
             save_file(macro_file, file_path)
             self.macro.set_macro_file(macro_file)
             return macro_file

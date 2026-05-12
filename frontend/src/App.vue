@@ -17,7 +17,7 @@ const currentView = ref('hidden')
 const isMaximized = ref(false)
 const currentTheme = ref<Theme>('dark')
 const hasNewLogError = ref(false)
-const appInfo = ref({ name: 'AutoGame', version: '0.0.0' })
+const appInfo = ref({ name: 'AutoGame', version: '0.0.0', homepage: '', instructions: '' })
 let logCheckInterval: number | null = null
 
 // 保存 keymouse 视图的子状态
@@ -60,6 +60,7 @@ async function loadConfig() {
 async function loadAppInfo() {
   try {
     const info = await (window as any).pywebview.api.get_app_info()
+    console.log(info)
     appInfo.value = info
   } catch (e) {
     console.error('Failed to load app info:', e)

@@ -188,6 +188,39 @@
   box-shadow: 0 0 0 2px #4A5060;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.action-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settings-view[data-theme="dark"] .action-btn {
+  background-color: #4A5060;
+  color: #e0e0e0;
+}
+
+.settings-view[data-theme="light"] .action-btn {
+  background-color: #4A5060;
+  color: #ffffff;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
 .app-info {
   margin-top: auto;
   padding: 16px;

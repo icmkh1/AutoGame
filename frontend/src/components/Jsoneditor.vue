@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, inject, type Ref } from 'vue'
-import { EditorView } from '@codemirror/view'
+import { EditorView, lineNumbers } from '@codemirror/view'
 import { EditorState, Compartment } from '@codemirror/state'
 import { json } from '@codemirror/lang-json'
 import { HighlightStyle, syntaxHighlighting, indentUnit } from '@codemirror/language'
@@ -120,6 +120,7 @@ const lightHighlightStyle = HighlightStyle.define([
 function getExtensions() {
   const extensions = [
     basicSetup,
+    lineNumbers(),
     languageCompartment.of(json()),
     EditorState.tabSize.of(4),
     indentUnit.of('    '),

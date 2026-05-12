@@ -1,7 +1,7 @@
+# 打包为exe文件: pyinstaller main.spec -y
+
 import webview
-import sys
 import logging
-from pathlib import Path
 from datetime import datetime
 from threading import Thread
 from PIL import Image
@@ -10,6 +10,7 @@ from src.api import Api
 from src.ocr import ocr
 from src.macro import Macro
 from src.file_manager import FileManager
+from src.path_manager import PathManager
 
 # 自定义日志Handler，用于捕获日志到内存
 class MemoryLogHandler(logging.Handler):
@@ -55,7 +56,7 @@ class MemoryLogHandler(logging.Handler):
 memory_handler = MemoryLogHandler()
 
 
-def setup_logging():
+def setup_logging(path_manager):
     """
     配置日志系统
     """
@@ -63,13 +64,15 @@ def setup_logging():
     date_format = '%Y_%m_%d__%H_%M_%S'
     log_format = '%(asctime)s - %(levelname)s - %(message)s'
 
-    # 创建logs目录
-    path = Path('logging')
-    path.mkdir(parents=True, exist_ok=True)
+    # 日志目录
+    path = path_manager.logs_dir
 
     # 只保留最近的5个日志文件
-    for log_file in path.glob('*.log'):
-        if len(list(path.glob('*.log'))) > 4:
+    log_files = list(path.glob('*.log'))
+    if len(log_files) > 4:
+        # 按修改时间排序，删除旧的
+        log_files.sort(key=lambda x: x.stat().st_mtime)
+        for log_file in log_files[:-4]:
             log_file.unlink()
 
     # 设置日志文件名
@@ -95,15 +98,15 @@ def setup_logging():
 
 class AutoGameApp:
     def __init__(self):
-        self.logger = setup_logging()
-        self.macro = Macro(self.logger, ocr)
-        self.file_manager = FileManager(self.logger, self.macro)
+        self.path_manager = PathManager()
+        self.logger = setup_logging(self.path_manager)
+        self.macro = Macro(self.logger, ocr, self.path_manager)
+        self.file_manager = FileManager(self.logger, self.path_manager, self.macro)
         self.file_manager.set_memory_handler(memory_handler)
-        self.api = Api(self.logger, self.file_manager, self.macro)
+        self.api = Api(self.logger, self.macro, self.file_manager)
         self.macro.set_api(self.api)
 
-        self.is_frozen = getattr(sys, 'frozen', False)
-        self.debug = not self.is_frozen
+        self.debug = True
         self.window = None
         self.tray = None
 
@@ -123,9 +126,14 @@ class AutoGameApp:
         return win_width, win_height, pos_x, pos_y
 
     def _get_index_path(self):
-        if self.is_frozen:
-            frontend_path = Path(sys._MEIPASS) / 'frontend' / 'dist'
-            return frontend_path / 'index.html'
+        # 先检查打包环境的路径
+        if self.path_manager.is_frozen():
+            index_path = self.path_manager.index_html_path
+            if index_path.exists():
+                self.debug = False
+                return str(index_path)
+        # 开发环境
+        self.debug = True
         return 'http://localhost:5173'
 
     def _create_window(self):
@@ -166,7 +174,7 @@ class AutoGameApp:
             self.macro.stop()
 
     def _create_tray(self):
-        icon_path = r'data\logo\logo_tray.png'
+        icon_path = self.path_manager.logo_tray_path
         image = Image.open(icon_path)
 
         def on_tray_click(icon, item):
