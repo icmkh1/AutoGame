@@ -426,6 +426,8 @@ class Macro:
             instruct = data['宏指令'].split(',')
             while data['触发键'] in self.down_state_keys:
                 for macro in instruct:
+                    if data['触发键'] not in self.down_state_keys:
+                        return
                     self.execute_macro(macro)
                     if '后置指令' in data:
                         self.execute_macro(data['后置指令'])
