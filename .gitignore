@@ -13,3 +13,4 @@ debug.log
 debug.py
 logging/
 releases/
+data/target_image/screenshot.png
