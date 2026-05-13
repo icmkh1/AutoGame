@@ -60,7 +60,6 @@ async function loadConfig() {
 async function loadAppInfo() {
   try {
     const info = await (window as any).pywebview.api.get_app_info()
-    console.log(info)
     appInfo.value = info
   } catch (e) {
     console.error('Failed to load app info:', e)

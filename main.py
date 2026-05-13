@@ -1,8 +1,6 @@
 # 打包为exe文件: pyinstaller main.spec -y
 
 import webview
-import logging
-from datetime import datetime
 from threading import Thread
 from PIL import Image
 import pystray
@@ -11,98 +9,17 @@ from src.ocr import ocr
 from src.macro import Macro
 from src.file_manager import FileManager
 from src.path_manager import PathManager
-
-# 自定义日志Handler，用于捕获日志到内存
-class MemoryLogHandler(logging.Handler):
-    def __init__(self):
-        super().__init__()
-        self.logs = []
-        self.max_logs = 1000  # 最多保存1000条日志
-        self._has_new_error = False
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            self.logs.append(msg)
-            # 检测是否是 error 或更高级别的日志
-            if record.levelno >= logging.ERROR:
-                self._has_new_error = True
-            # 限制日志数量
-            if len(self.logs) > self.max_logs:
-                self.logs = self.logs[-self.max_logs:]
-        except Exception:
-            self.handleError(record)
-
-    def get_logs(self):
-        return '\n'.join(self.logs)
-
-    def clear_logs(self):
-        self.logs = []
-        self._has_new_error = False
-
-    def has_new_error(self):
-        """检查是否有新的错误
-        Returns:
-            bool: 是否有未读的错误
-        """
-        return self._has_new_error
-
-    def clear_new_error_flag(self):
-        """清除新错误的标记
-        """
-        self._has_new_error = False
-
-# 全局内存日志Handler实例
-memory_handler = MemoryLogHandler()
-
-
-def setup_logging(path_manager):
-    """
-    配置日志系统
-    """
-    # 配置日志
-    date_format = '%Y_%m_%d__%H_%M_%S'
-    log_format = '%(asctime)s - %(levelname)s - %(message)s'
-
-    # 日志目录
-    path = path_manager.logs_dir
-
-    # 只保留最近的5个日志文件
-    log_files = list(path.glob('*.log'))
-    if len(log_files) > 4:
-        # 按修改时间排序，删除旧的
-        log_files.sort(key=lambda x: x.stat().st_mtime)
-        for log_file in log_files[:-4]:
-            log_file.unlink()
-
-    # 设置日志文件名
-    log_filename = path / f'{datetime.now().strftime(date_format)}.log'
-
-    # 配置内存handler的格式
-    memory_handler.setFormatter(logging.Formatter(log_format, datefmt=date_format))
-
-    # 配置日志系统
-    logging.basicConfig(
-        level=logging.INFO,
-        format=log_format,
-        datefmt=date_format,
-        handlers=[
-            logging.FileHandler(log_filename, encoding='utf-8'),
-            logging.StreamHandler(),
-            memory_handler
-        ]
-    )
-
-    return logging.getLogger(__name__)
+from src.logger import Logger
 
 
 class AutoGameApp:
     def __init__(self):
         self.path_manager = PathManager()
-        self.logger = setup_logging(self.path_manager)
+        self.logger_manager = Logger()
+        self.logger = self.logger_manager.setup_logging(self.path_manager)
         self.macro = Macro(self.logger, ocr, self.path_manager)
         self.file_manager = FileManager(self.logger, self.path_manager, self.macro)
-        self.file_manager.set_memory_handler(memory_handler)
+        self.file_manager.set_memory_handler(self.logger_manager.get_memory_handler())
         self.api = Api(self.logger, self.macro, self.file_manager)
         self.macro.set_api(self.api)
 
