@@ -233,14 +233,16 @@ class FileManager:
 
     def open_folder(self, file_name: str):
         """
-            打开文件夹
+            打开文件所在文件夹
+        Args:
+            file_name (str): 宏文件文件名(不包含扩展名)
         """
         try:
-            self.logger.info(f'打开文件夹：{file_name}')
+            self.logger.info(f'打开文件所在文件夹：{file_name}')
             file_path = self.macro_dir / f'{file_name}.json'
-            subprocess.run(['explorer', f'/select,{file_path}'])
+            subprocess.run(['explorer', '/select,', str(file_path.resolve())])
         except Exception as e:
-            self.logger.error(f'打开文件夹 报错信息：{e}')
+            self.logger.error(f'打开文件所在文件夹 报错信息：{e}')
             return False
 
     def delete_file(self, file_name: str):
