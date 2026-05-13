@@ -191,7 +191,6 @@ class Macro:
                 if not self.macro_switch:
                     self.logger.info(f'手动关闭 完整指令：{instruction}')
                     return False
-
                 action_list = action.strip().split()
                 if not action_list:
                     continue
@@ -512,7 +511,6 @@ class Macro:
                 auxiliary (str): 已按下辅助键
                 auxiliary_n (str): 未按下辅助键
         """
-        print(args)
         key_mappings = {
             '!辅助': args[0][1],
             '辅助': args[0][0],
@@ -720,7 +718,9 @@ class Macro:
                 target_image = self.match_image.read_image(target_image)
                 (x, y), sim = self.match_image.match(target_image, rect, similarity)
             if sim >= similarity and '分支Y' in data:
-                self.execute_macro(f'移动 {x} {y},{data["分支Y"]}', key_mouse_mode)
+                if data.get('定位目标') == '是':
+                    self.execute_macro(f'移动 {int(x)} {int(y)}', key_mouse_mode)
+                self.execute_macro(data["分支Y"], key_mouse_mode)
             elif sim < similarity and '分支N' in data:
                 self.execute_macro(data['分支N'], key_mouse_mode)
         except Exception as e:
@@ -824,7 +824,9 @@ class Macro:
                                 break
 
             if flag and '分支Y' in data:
-                self.execute_macro(f'移动 {x} {y},{data["分支Y"]}', key_mouse_mode)
+                if data.get('定位目标') == '是':
+                    self.execute_macro(f'移动 {int(x)} {int(y)}', key_mouse_mode)
+                self.execute_macro(data["分支Y"], key_mouse_mode)
             elif not flag and '分支N' in data:
                 self.execute_macro(data['分支N'], key_mouse_mode)
         except Exception as e:
