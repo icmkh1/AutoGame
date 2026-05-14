@@ -169,8 +169,8 @@ pyinstaller main.spec -y
 | MLeft  | 鼠标左键  |
 | MRight | 鼠标右键  |
 | Middle | 鼠标中键  |
-| side1  | 鼠标侧键1 |
-| side2  | 鼠标侧键2 |
+| MSide1  | 鼠标侧键1 |
+| MSide2  | 鼠标侧键2 |
 
 ## 许可证
 

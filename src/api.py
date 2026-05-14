@@ -8,7 +8,7 @@ class Api:
         self.logger = logger
         self.macro = macro
         self.file_manager = file_manager
-        self._no_key_names = ['MLeft', 'MRight', 'Middle', 'side1', 'side2']
+        self._no_key_names = ['MLeft', 'MRight', 'Middle', 'MSide1', 'MSide2']
 
         self._window = None
         self._maximized = False

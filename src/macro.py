@@ -31,8 +31,8 @@ class Macro:
             'MLeft': 0,
             'MRight': 1,
             'Middle': 2,
-            'side1': 3,
-            'side2': 4,
+            'MSide1': 3,
+            'MSide2': 4,
         }
         self.commands = {
             '按下': self._down,
@@ -51,8 +51,8 @@ class Macro:
             '映射': lambda data, args: self.mappings(data, args),
             '截图': lambda data: self.screenshot(data),
             '追踪': lambda data: self.track(data),
-            '图像匹配': lambda data: self.image_match(data),
             '颜色匹配': lambda data: self.color_match(data),
+            '图像匹配': lambda data: self.image_match(data),
             '文字识别': lambda data: self.text_ocr(data)
         }
         self.function_mapping_up = {
@@ -72,7 +72,7 @@ class Macro:
         self.hook_listener.add_handler('mouseup', self._hook_all_up)
 
         self.hotkey_listener = HotkeyListener(self.hook_listener)
-        self.hotkey_listener.add_hotkey('保存', ['Lctrl', 'S'], lambda: self.api.save_json_file())
+        self.hotkey_listener.add_hotkey('保存', ['LCtrl', 'S'], lambda: self.api.save_json_file())
 
 #   --------------------------------------------------监听器控制-------------------------------------------------
 
@@ -686,47 +686,6 @@ class Macro:
             self.logger.error(f'功能 追踪 报错信息：{e}')
             raise e
 
-    def image_match(self, data: dict):
-        """
-            图像匹配
-        Args:
-            data (dict): 图像匹配数据
-        """
-        self.logger.info(f'功能 图像匹配 data：{data}')
-        try:
-            target_image = data.get("图像名称", None)
-            if not target_image:
-                self.logger.error(f'功能 图像匹配 错误信息：图像名称缺失，当前数据：{data}')
-                return
-            if not target_image.exists():
-                self.logger.error(f'功能 图像匹配 错误信息：图像文件不存在，当前数据：{data}')
-                return
-
-            key_mouse_mode = data.get("键鼠模式", 'send')
-            similarity = float(data.get("相似度", 0.8))
-            if self.macro_window:
-                window_width, window_height = self.macro_window.client_size
-                rect = tuple(map(int, data.get('匹配范围', f"0 0 {window_width} {window_height}").strip().split()))
-            else:
-                screen_width, screen_height = self.get_screen_size()
-                rect = tuple(map(int, data.get('匹配范围', f"0 0 {screen_width} {screen_height}").strip().split()))
-
-            if self.macro_window:
-                target_image = self.macro_window.read_image()
-                (x, y), sim = self.macro_window.match_image(target_image, rect, similarity)
-            else:
-                target_image = self.match_image.read_image(target_image)
-                (x, y), sim = self.match_image.match(target_image, rect, similarity)
-            if sim >= similarity and '分支Y' in data:
-                if data.get('定位目标') == '是':
-                    self.execute_macro(f'移动 {int(x)} {int(y)}', key_mouse_mode)
-                self.execute_macro(data["分支Y"], key_mouse_mode)
-            elif sim < similarity and '分支N' in data:
-                self.execute_macro(data['分支N'], key_mouse_mode)
-        except Exception as e:
-            self.logger.error(f'功能 图像匹配 报错信息：{e}')
-            raise e
-
     def color_match(self, data: dict):
         """
             颜色匹配
@@ -774,6 +733,47 @@ class Macro:
                 self.execute_macro(data['分支N'], key_mouse_mode)
         except Exception as e:
             self.logger.error(f'功能 颜色匹配 报错信息：{e}')
+            raise e
+
+    def image_match(self, data: dict):
+        """
+            图像匹配
+        Args:
+            data (dict): 图像匹配数据
+        """
+        self.logger.info(f'功能 图像匹配 data：{data}')
+        try:
+            target_image = data.get("图像名称", None)
+            if not target_image:
+                self.logger.error(f'功能 图像匹配 错误信息：图像名称缺失，当前数据：{data}')
+                return
+            if not target_image.exists():
+                self.logger.error(f'功能 图像匹配 错误信息：图像文件不存在，当前数据：{data}')
+                return
+
+            key_mouse_mode = data.get("键鼠模式", 'send')
+            similarity = float(data.get("相似度", 0.8))
+            if self.macro_window:
+                window_width, window_height = self.macro_window.client_size
+                rect = tuple(map(int, data.get('匹配范围', f"0 0 {window_width} {window_height}").strip().split()))
+            else:
+                screen_width, screen_height = self.get_screen_size()
+                rect = tuple(map(int, data.get('匹配范围', f"0 0 {screen_width} {screen_height}").strip().split()))
+
+            if self.macro_window:
+                target_image = self.macro_window.read_image()
+                (x, y), sim = self.macro_window.match_image(target_image, rect, similarity)
+            else:
+                target_image = self.match_image.read_image(target_image)
+                (x, y), sim = self.match_image.match(target_image, rect, similarity)
+            if sim >= similarity and '分支Y' in data:
+                if data.get('定位目标') == '是':
+                    self.execute_macro(f'移动 {int(x)} {int(y)}', key_mouse_mode)
+                self.execute_macro(data["分支Y"], key_mouse_mode)
+            elif sim < similarity and '分支N' in data:
+                self.execute_macro(data['分支N'], key_mouse_mode)
+        except Exception as e:
+            self.logger.error(f'功能 图像匹配 报错信息：{e}')
             raise e
 
     def text_ocr(self, data: dict):
@@ -920,7 +920,7 @@ class Macro:
             self.key_name = event.key_name
         elif isinstance(event, MouseEvent):
             self.key_name = event.button
-        # self.logger.info(f'键鼠监听器 按键按下：{self.key_name}')
+        self.logger.info(f'键鼠监听器 按键按下：{self.key_name}')
 
         # 宏开关切换
         if self.key_name == self.macro_switch_key and self.macro_file:
@@ -945,7 +945,7 @@ class Macro:
             self.key_name = event.key_name
         elif isinstance(event, MouseEvent):
             self.key_name = event.button
-        # self.logger.info(f'键鼠监听器 按键弹起：{self.key_name}')
+        self.logger.info(f'键鼠监听器 按键弹起：{self.key_name}')
 
         # 宏功能触发
         if self.macro_switch and self.key_name in self.down_state_keys:

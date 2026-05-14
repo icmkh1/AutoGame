@@ -1,7 +1,7 @@
 [project]
 name = "AutoGame"
-version = "2.0.1"
-description = "一个基于 Python 的键鼠自动化工具，支持多种宏功能类型，可通过 JSON 配置文件进行配置。系统支持热键触发、图像匹配、颜色匹配、文字识别等功能。"
+version = "2.0.2"
+description = "本软件是一个基于 Python 的自动化工具，支持前后台键鼠、图色、文字识别等功能。"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "GPL-3.0-or-later"}
@@ -11,7 +11,7 @@ authors = [
 ]
 
 dependencies = [
-    "autoxkit>=1.1.3",
+    "autoxkit>=1.1.4",
     "numpy<2.0.0",
     "onnxruntime-gpu==1.14.1",
     "opencv-contrib-python==4.7.0.72",

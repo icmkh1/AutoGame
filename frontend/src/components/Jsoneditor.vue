@@ -59,9 +59,10 @@ async function startKeyNameListening() {
           keyName.value = keyNameResult
           stopKeyNameListening()
         }
+        console.log(keyName.value)
       }
     } catch (e) {
-      // ignore errors during listening
+      console.error('Error listening for key name:', e)
     }
   }, 100)
 }
@@ -82,11 +83,6 @@ function onKeyNameFocus() {
 }
 
 function onKeyNameBlur() {
-}
-
-function onKeyNameInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  target.value = keyName.value
 }
 
 const editorRef = ref<HTMLDivElement | null>(null)
@@ -373,26 +369,28 @@ function enableEditor() {
             type="text"
             class="tool-input"
             :class="{ listening: isListeningKeyName }"
-            v-model="keyName"
+            :value="keyName"
             @focus="onKeyNameFocus"
             @blur="onKeyNameBlur"
-            @input.prevent="onKeyNameInput"
+            readonly
           />
           <input
             ref="mousePositionInputRef"
             type="text"
             class="tool-input"
             :class="{ listening: isListeningMousePosition }"
-            v-model="mousePosition"
+            :value="mousePosition"
             @click="startMousePositionListening"
+            readonly
           />
           <input
             ref="pixelColorInputRef"
             type="text"
             class="tool-input"
             :class="{ listening: isListeningPixelColor }"
-            v-model="pixelColor"
+            :value="pixelColor"
             @click="startPixelColorListening"
+            readonly
           />
         </div>
         <button

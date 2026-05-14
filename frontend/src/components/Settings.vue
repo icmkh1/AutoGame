@@ -84,11 +84,6 @@ function onMacroSwitchFocus() {
 function onMacroSwitchBlur() {
 }
 
-function onMacroSwitchInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  target.value = macroSwitch.value
-}
-
 async function openUrl(url: string) {
   try {
     if ((window as any).pywebview && (window as any).pywebview.api) {
@@ -163,10 +158,10 @@ onMounted(() => {
             ref="macroSwitchInput"
             type="text"
             class="macro-switch-input"
-            v-model="macroSwitch"
+            :value="macroSwitch"
             @focus="onMacroSwitchFocus"
             @blur="onMacroSwitchBlur"
-            @input.prevent="onMacroSwitchInput"
+            readonly
           />
         </div>
       </div>
