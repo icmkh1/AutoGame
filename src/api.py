@@ -43,9 +43,6 @@ class Api:
     def delete_file(self, file_name: str):
         return self.file_manager.delete_file(file_name)
 
-    def get_memory_logs(self):
-        return self.file_manager.get_memory_logs()
-
     def clear_memory_logs(self):
         return self.file_manager.clear_memory_logs()
 
@@ -72,6 +69,15 @@ class Api:
     def get_pixel_color(self):
         color = self.macro.get_pixel_color()
         return color
+
+    def get_memory_logs(self):
+        return self.file_manager.get_memory_logs()
+
+    def get_memory_logs_count(self):
+        return self.file_manager.get_memory_logs_count()
+
+    def get_memory_logs_since(self, index):
+        return self.file_manager.get_memory_logs_since(index)
 
     def set_window(self, window):
         self._window = window

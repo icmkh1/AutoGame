@@ -281,6 +281,36 @@ class FileManager:
             self.logger.error(f'获取内存日志 报错信息：{e}')
             return False
 
+    def get_memory_logs_count(self):
+        """
+            获取内存日志条目数量
+        Returns:
+            int: 日志条目数量
+        """
+        try:
+            if hasattr(self, '_memory_handler') and self._memory_handler:
+                return self._memory_handler.get_logs_count()
+            return 0
+        except Exception as e:
+            self.logger.error(f'获取内存日志数量 报错信息：{e}')
+            return 0
+
+    def get_memory_logs_since(self, index):
+        """
+            获取从指定索引开始的增量日志
+        Args:
+            index: 起始索引位置
+        Returns:
+            dict: 包含日志内容和新索引位置的字典
+        """
+        try:
+            if hasattr(self, '_memory_handler') and self._memory_handler:
+                return self._memory_handler.get_logs_since(index)
+            return {'content': '', 'new_index': 0}
+        except Exception as e:
+            self.logger.error(f'获取增量内存日志 报错信息：{e}')
+            return {'content': '', 'new_index': 0}
+
     def clear_memory_logs(self):
         """
             清空内存中的日志

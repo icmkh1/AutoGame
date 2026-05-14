@@ -920,7 +920,9 @@ class Macro:
             self.key_name = event.key_name
         elif isinstance(event, MouseEvent):
             self.key_name = event.button
-        self.logger.info(f'键鼠监听器 按键按下：{self.key_name}')
+
+        if not self.path_manager.is_frozen():
+            self.logger.info(f'键鼠监听器 按键按下：{self.key_name}')
 
         # 宏开关切换
         if self.key_name == self.macro_switch_key and self.macro_file:
@@ -945,7 +947,9 @@ class Macro:
             self.key_name = event.key_name
         elif isinstance(event, MouseEvent):
             self.key_name = event.button
-        self.logger.info(f'键鼠监听器 按键弹起：{self.key_name}')
+
+        if not self.path_manager.is_frozen():
+            self.logger.info(f'键鼠监听器 按键弹起：{self.key_name}')
 
         # 宏功能触发
         if self.macro_switch and self.key_name in self.down_state_keys:

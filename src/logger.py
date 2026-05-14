@@ -37,6 +37,32 @@ class MemoryLogHandler(logging.Handler):
         """
         return '\n'.join(self.logs)
 
+    def get_logs_count(self):
+        """
+        获取日志条目数量
+
+        Returns:
+            int: 日志条目总数
+        """
+        return len(self.logs)
+
+    def get_logs_since(self, index):
+        """
+        获取从指定索引开始的增量日志
+
+        Args:
+            index: 起始索引位置
+
+        Returns:
+            dict: 包含日志内容和新索引位置的字典
+        """
+        if index >= len(self.logs):
+            return {'content': '', 'new_index': len(self.logs)}
+        return {
+            'content': '\n'.join(self.logs[index:]),
+            'new_index': len(self.logs)
+        }
+
     def clear_logs(self):
         """清空所有日志并重置错误标志"""
         self.logs = []
