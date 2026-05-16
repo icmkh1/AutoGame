@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar.vue'
 import Filelist from './components/Filelist.vue'
 import Settings from './components/Settings.vue'
 import Logeditor from './components/Logeditor.vue'
+import Screencast from './components/Screencast.vue'
 import './App.css'
 
 type Theme = 'light' | 'dark'
@@ -201,7 +202,7 @@ provide('appInfo', appInfo)
             @updateFileName="keymouseSubView.fileName = $event"
             @updateContent="keymouseSubView.content = $event"
           />
-          <h1 v-else-if="currentView === 'screencast'">手机投屏</h1>
+          <Screencast v-else-if="currentView === 'screencast'" />
           <Settings v-else-if="currentView === 'settings'" />
           <Logeditor
             v-else-if="currentView === 'logs'"

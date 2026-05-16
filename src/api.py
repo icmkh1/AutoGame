@@ -142,6 +142,6 @@ class Api:
             'get_macro_switch_key_name', 'get_key_name', 'get_mouse_position', 'get_pixel_color',
             'get_macro_files', 'load_macrofile', 'save_macrofile',
             'create_new_file', 'rename_file', 'open_folder', 'delete_file',
-            'get_memory_logs', 'clear_memory_logs', 'has_new_error', 'clear_new_error_flag',
+            'get_memory_logs', 'get_memory_logs_count', 'get_memory_logs_since', 'clear_memory_logs', 'has_new_error', 'clear_new_error_flag',
             'disable_json_editor', 'enable_json_editor', 'save_json_file',
         ]

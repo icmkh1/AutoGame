@@ -1,0 +1,335 @@
+<script setup lang="ts">
+import { ref, computed, inject, type Ref } from 'vue'
+
+type Theme = 'light' | 'dark'
+
+const currentTheme = inject<Ref<Theme>>('theme')
+
+const connectionMode = ref<'usb' | 'wireless' | 'control_only' | null>(null)
+
+const videoSource = ref<'screen' | 'camera' | 'none'>('screen')
+const audioSource = ref<'internal' | 'mic' | 'none'>('internal')
+const quality = ref<'480' | '720' | '1080' | 'unlimited'>('unlimited')
+const bitrate = ref<'4M' | '6M' | '8M' | 'unlimited'>('unlimited')
+const fpsLimit = ref<'30' | '60' | '120' | 'unlimited'>('unlimited')
+
+const isOnlyControlMode = computed(() => {
+  return videoSource.value === 'none' && audioSource.value === 'none'
+})
+
+const shouldDisableVideoSettings = computed(() => {
+  return videoSource.value === 'none'
+})
+
+function handleConnect(mode: 'usb' | 'wireless' | 'control_only') {
+  if (mode === 'control_only' || !isOnlyControlMode.value) {
+    connectionMode.value = mode
+  }
+}
+
+function handleDisconnect() {
+  connectionMode.value = null
+}
+
+function selectVideoSource(source: 'screen' | 'camera' | 'none') {
+  videoSource.value = source
+}
+
+function selectAudioSource(source: 'internal' | 'mic' | 'none') {
+  audioSource.value = source
+}
+
+function selectQuality(q: '480' | '720' | '1080' | 'unlimited') {
+  if (!shouldDisableVideoSettings.value) {
+    quality.value = q
+  }
+}
+
+function selectBitrate(b: '4M' | '6M' | '8M' | 'unlimited') {
+  if (!shouldDisableVideoSettings.value) {
+    bitrate.value = b
+  }
+}
+
+function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
+  if (!shouldDisableVideoSettings.value) {
+    fpsLimit.value = fps
+  }
+}
+</script>
+
+<style src="./Screencast.css" scoped></style>
+
+<template>
+  <div class="screencast-view" :data-theme="currentTheme">
+    <h1 class="section-title">手机投屏</h1>
+
+    <div class="connection-buttons">
+      <button
+        class="connect-btn usb-btn"
+        :class="{ disabled: isOnlyControlMode, active: connectionMode === 'usb' }"
+        @click="handleConnect('usb')"
+        :disabled="isOnlyControlMode"
+      >
+        <svg viewBox="0 0 1024 1024" width="20" height="20">
+          <g transform="scale(1) translate(0, 0)">
+            <path d="M760 432V144c0-17.7-14.3-32-32-32H296c-17.7 0-32 14.3-32 32v288c-66.2 0-120 52.1-120 116v356c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8V548c0-24.3 21.6-44 48.1-44H759.9c26.5 0 48.1 19.7 48.1 44v356c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8V548c0-63.9-53.8-116-120-116z m-424 0V184h352v248H336z" fill="currentColor"/>
+            <path d="M456 248h-48c-4.4 0-8 3.6-8 8v48c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-48c0-4.4-3.6-8-8-8zM616 248h-48c-4.4 0-8 3.6-8 8v48c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8v-48c0-4.4-3.6-8-8-8z" fill="currentColor"/>
+          </g>
+        </svg>
+        <span>USB连接</span>
+      </button>
+
+      <button
+        class="connect-btn wireless-btn"
+        :class="{ disabled: isOnlyControlMode, active: connectionMode === 'wireless' }"
+        @click="handleConnect('wireless')"
+        :disabled="isOnlyControlMode"
+      >
+        <svg viewBox="0 0 1024 1024" width="20" height="20">
+          <g transform="scale(0.93) translate(50, 0)">
+            <path d="M640 810.666667a128 128 0 1 0-256 0 128 128 0 0 0 256 0z m-170.666667 0a42.666667 42.666667 0 1 1 85.333334 0 42.666667 42.666667 0 0 1-85.333334 0zM1002.752 271.786667a42.666667 42.666667 0 1 1-65.408 54.869333A553.301333 553.301333 0 0 0 512 128C346.368 128 192.682667 200.96 87.893333 325.162667A42.666667 42.666667 0 0 1 22.613333 270.122667 638.592 638.592 0 0 1 512 42.666667c191.829333 0 369.92 84.949333 490.752 229.12z m-159.402667 139.136a42.666667 42.666667 0 0 1-65.365333 54.826666A346.496 346.496 0 0 0 511.573333 341.333333a346.453333 346.453333 0 0 0-265.642666 123.477334 42.666667 42.666667 0 0 1-65.194667-55.04A431.786667 431.786667 0 0 1 511.573333 256a431.786667 431.786667 0 0 1 331.776 154.922667z m-128 153.472a42.666667 42.666667 0 0 1-65.365333 54.826666A179.712 179.712 0 0 0 511.744 554.666667a179.712 179.712 0 0 0-137.813333 64.085333 42.666667 42.666667 0 0 1-65.194667-55.04A265.045333 265.045333 0 0 1 511.744 469.333333c79.573333 0 153.514667 35.285333 203.605333 95.061334z" fill="currentColor"/>
+          </g>
+        </svg>
+        <span>无线连接</span>
+      </button>
+
+      <button
+        class="connect-btn control-btn"
+        :class="{ active: connectionMode === 'control_only' }"
+        @click="handleConnect('control_only')"
+      >
+        <svg viewBox="0 0 1024 1024" width="20" height="20">
+          <g transform="scale(1.2) translate(-85, -85)">
+            <path d="M512 938.4C276.7 938.4 85.3 747 85.3 511.8S276.7 85.1 512 85.1s426.7 191.4 426.7 426.7S747.3 938.4 512 938.4z m0-775.7c-192.5 0-349.1 156.6-349.1 349.1S319.5 860.9 512 860.9s349.1-156.6 349.1-349.1S704.5 162.7 512 162.7z" fill="currentColor"/>
+            <path d="M512 205.4l128 128H384l128-128z m0 612.8l128-128H384l128 128zM205.6 511.8l128-128v256l-128-128z m612.8 0l-128-128v256l128-128z" fill="currentColor"/>
+          </g>
+        </svg>
+        <span>仅控制</span>
+      </button>
+
+      <button
+        class="connect-btn disconnect-btn"
+        :class="{ active: connectionMode === null, disabled: !connectionMode }"
+        @click="handleDisconnect"
+        :disabled="!connectionMode"
+      >
+        <svg viewBox="0 0 1024 1024" width="20" height="20">
+          <g transform="scale(1) translate(0, 0)">
+            <path d="M816.952281 614.064456l-45.118858-45.118857L895.99028 447.98866a223.99433 223.99433 0 0 0-316.791981-316.791981l-124.156857 120.956938-45.118858-45.438849 122.556898-122.236906a287.99271 287.99271 0 0 1 407.029697 407.029697zM288.00567 1023.974081a287.99271 287.99271 0 0 1-203.514849-491.507559l122.556898-122.556898 45.118858 45.118858-122.556898 122.556898A223.99433 223.99433 0 0 0 448.00162 895.977321l122.556898-122.556898 45.118858 45.118858-122.556898 122.556898A285.752767 285.752767 0 0 1 288.00567 1023.974081zM137.257486 182.555379L182.50434 137.276525l255.897523 255.897523-45.246855 45.246854zM585.214147 630.544039l45.246854-45.246854 255.897523 255.897522-45.246855 45.246855z" fill="currentColor"/>
+          </g>
+        </svg>
+        <span>断开连接</span>
+      </button>
+    </div>
+
+    <div class="settings-grid">
+      <div class="setting-card">
+        <div class="card-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" stroke-linejoin="round"/>
+            <path d="M8 21h8M12 17v4"/>
+          </svg>
+          <span class="card-title">视频来源</span>
+        </div>
+        <div class="option-group">
+          <button
+            class="option-btn"
+            :class="{ active: videoSource === 'screen' }"
+            @click="selectVideoSource('screen')"
+          >
+            手机屏幕
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: videoSource === 'camera' }"
+            @click="selectVideoSource('camera')"
+          >
+            摄像头
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: videoSource === 'none' }"
+            @click="selectVideoSource('none')"
+          >
+            不传输视频
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="card-header">
+          <svg viewBox="0 0 1024 1024" width="22" height="22">
+            <rect x="16" y="32" width="992" height="832" rx="64" stroke="currentColor" stroke-width="64" fill="none"/>
+            <text x="512" y="590" font-size="480" font-weight="bold" text-anchor="middle" fill="currentColor">HD</text>
+          </svg>
+          <span class="card-title">画质</span>
+        </div>
+        <div class="option-group">
+          <button
+            class="option-btn"
+            :class="{ active: quality === '480', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('480')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            480P
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: quality === '720', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('720')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            720P
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: quality === '1080', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('1080')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            1080P
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: quality === 'unlimited', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('unlimited')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            不限制
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="card-header">
+          <svg viewBox="0 0 1024 1024" width="22" height="22">
+            <rect x="32" y="400" width="64" height="224" rx="16" fill="currentColor"/>
+            <rect x="200" y="288" width="64" height="448" rx="16" fill="currentColor"/>
+            <rect x="368" y="176" width="64" height="672" rx="16" fill="currentColor"/>
+            <rect x="536" y="288" width="64" height="448" rx="16" fill="currentColor"/>
+            <rect x="704" y="400" width="64" height="224" rx="16" fill="currentColor"/>
+          </svg>
+          <span class="card-title">比特率</span>
+        </div>
+        <div class="option-group">
+          <button
+            class="option-btn"
+            :class="{ active: bitrate === '4M', disabled: shouldDisableVideoSettings }"
+            @click="selectBitrate('4M')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            4M
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: bitrate === '6M', disabled: shouldDisableVideoSettings }"
+            @click="selectBitrate('6M')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            6M
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: bitrate === '8M', disabled: shouldDisableVideoSettings }"
+            @click="selectBitrate('8M')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            8M
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: bitrate === 'unlimited', disabled: shouldDisableVideoSettings }"
+            @click="selectBitrate('unlimited')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            不限制
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="card-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+          </svg>
+          <span class="card-title">音频来源</span>
+        </div>
+        <div class="option-group">
+          <button
+            class="option-btn"
+            :class="{ active: audioSource === 'internal' }"
+            @click="selectAudioSource('internal')"
+          >
+            内部输入
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: audioSource === 'mic' }"
+            @click="selectAudioSource('mic')"
+          >
+            麦克风
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: audioSource === 'none' }"
+            @click="selectAudioSource('none')"
+          >
+            不传输音频
+          </button>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="card-header">
+          <svg viewBox="0 0 1024 1024" width="22" height="22">
+            <circle cx="512" cy="512" r="448" stroke="currentColor" stroke-width="64" fill="none"/>
+            <text x="512" y="720" font-size="560" font-weight="bold" text-anchor="middle" fill="currentColor">F</text>
+          </svg>
+          <span class="card-title">帧率限制</span>
+        </div>
+        <div class="option-group">
+          <button
+            class="option-btn"
+            :class="{ active: fpsLimit === '30', disabled: shouldDisableVideoSettings }"
+            @click="selectFps('30')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            30
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: fpsLimit === '60', disabled: shouldDisableVideoSettings }"
+            @click="selectFps('60')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            60
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: fpsLimit === '120', disabled: shouldDisableVideoSettings }"
+            @click="selectFps('120')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            120
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: fpsLimit === 'unlimited', disabled: shouldDisableVideoSettings }"
+            @click="selectFps('unlimited')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            不限制
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="connection-status" v-if="connectionMode">
+      <div class="status-indicator" :class="connectionMode"></div>
+      <span>
+        {{ connectionMode === 'usb' ? 'USB连接中' : connectionMode === 'wireless' ? '无线连接中' : '仅控制模式' }}
+      </span>
+    </div>
+  </div>
+</template>
