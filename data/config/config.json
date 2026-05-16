@@ -1,5 +1,13 @@
 {
-    "theme": "dark",
+    "theme": "light",
     "minimizeToTray": true,
-    "macroSwitch": "F1"
+    "macroSwitch": "F1",
+    "screencast": {
+        "videoSource": "display",
+        "audioSource": "output",
+        "quality": "unlimited",
+        "bitrate": "unlimited",
+        "fpsLimit": "unlimited",
+        "showFps": true
+    }
 }

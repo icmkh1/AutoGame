@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { ref, computed, inject, type Ref } from 'vue'
+import { ref, computed, inject, onMounted, type Ref } from 'vue'
 
 type Theme = 'light' | 'dark'
 
 const currentTheme = inject<Ref<Theme>>('theme')
 
+const emit = defineEmits<{
+  (e: 'navigate', mode: 'usb' | 'wireless'): void
+}>()
+
 const connectionMode = ref<'usb' | 'wireless' | 'control_only' | null>(null)
 
-const videoSource = ref<'screen' | 'camera' | 'none'>('screen')
-const audioSource = ref<'internal' | 'mic' | 'none'>('internal')
+const videoSource = ref<'display' | 'camera' | 'none'>('display')
+const audioSource = ref<'output' | 'mic' | 'none'>('output')
 const quality = ref<'480' | '720' | '1080' | 'unlimited'>('unlimited')
 const bitrate = ref<'4M' | '6M' | '8M' | 'unlimited'>('unlimited')
 const fpsLimit = ref<'30' | '60' | '120' | 'unlimited'>('unlimited')
+const showFps = ref(true)
 
 const isOnlyControlMode = computed(() => {
   return videoSource.value === 'none' && audioSource.value === 'none'
@@ -21,9 +26,81 @@ const shouldDisableVideoSettings = computed(() => {
   return videoSource.value === 'none'
 })
 
+async function loadScreencastConfig() {
+  try {
+    const config = await (window as any).pywebview.api.get_config_file()
+    const sc = config.screencast
+    if (sc) {
+      if (sc.videoSource && ['display', 'camera', 'none'].includes(sc.videoSource)) {
+        videoSource.value = sc.videoSource
+      }
+      if (sc.audioSource && ['output', 'mic', 'none'].includes(sc.audioSource)) {
+        audioSource.value = sc.audioSource
+      }
+      if (sc.quality && ['480', '720', '1080', 'unlimited'].includes(sc.quality)) {
+        quality.value = sc.quality
+      }
+      if (sc.bitrate && ['4M', '6M', '8M', 'unlimited'].includes(sc.bitrate)) {
+        bitrate.value = sc.bitrate
+      }
+      if (sc.fpsLimit && ['30', '60', '120', 'unlimited'].includes(sc.fpsLimit)) {
+        fpsLimit.value = sc.fpsLimit
+      }
+      if (sc.showFps !== undefined) {
+        showFps.value = sc.showFps
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load screencast config:', e)
+  }
+}
+
+async function saveScreencastConfig() {
+  try {
+    const config = await (window as any).pywebview.api.get_config_file()
+    config.screencast = {
+      videoSource: videoSource.value,
+      audioSource: audioSource.value,
+      quality: quality.value,
+      bitrate: bitrate.value,
+      fpsLimit: fpsLimit.value,
+      showFps: showFps.value,
+    }
+    await (window as any).pywebview.api.save_config_file(config)
+  } catch (e) {
+    console.error('Failed to save screencast config:', e)
+  }
+}
+
+async function pollForConfig() {
+  const maxAttempts = 50
+  let attempts = 0
+  while (attempts < maxAttempts) {
+    try {
+      if ((window as any).pywebview && (window as any).pywebview.api) {
+        await loadScreencastConfig()
+        return
+      }
+    } catch (e) {
+      // continue trying
+    }
+    attempts++
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  console.warn('Failed to load screencast config after multiple attempts')
+}
+
+onMounted(() => {
+  pollForConfig()
+})
+
 function handleConnect(mode: 'usb' | 'wireless' | 'control_only') {
   if (mode === 'control_only' || !isOnlyControlMode.value) {
-    connectionMode.value = mode
+    if (mode === 'usb' || mode === 'wireless') {
+      emit('navigate', mode)
+    } else {
+      connectionMode.value = mode
+    }
   }
 }
 
@@ -31,30 +108,40 @@ function handleDisconnect() {
   connectionMode.value = null
 }
 
-function selectVideoSource(source: 'screen' | 'camera' | 'none') {
+function selectVideoSource(source: 'display' | 'camera' | 'none') {
   videoSource.value = source
+  saveScreencastConfig()
 }
 
-function selectAudioSource(source: 'internal' | 'mic' | 'none') {
+function selectAudioSource(source: 'output' | 'mic' | 'none') {
   audioSource.value = source
+  saveScreencastConfig()
 }
 
 function selectQuality(q: '480' | '720' | '1080' | 'unlimited') {
   if (!shouldDisableVideoSettings.value) {
     quality.value = q
+    saveScreencastConfig()
   }
 }
 
 function selectBitrate(b: '4M' | '6M' | '8M' | 'unlimited') {
   if (!shouldDisableVideoSettings.value) {
     bitrate.value = b
+    saveScreencastConfig()
   }
 }
 
 function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
   if (!shouldDisableVideoSettings.value) {
     fpsLimit.value = fps
+    saveScreencastConfig()
   }
+}
+
+function selectShowFps(val: boolean) {
+  showFps.value = val
+  saveScreencastConfig()
 }
 </script>
 
@@ -107,12 +194,10 @@ function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
         </svg>
         <span>仅控制</span>
       </button>
-
       <button
         class="connect-btn disconnect-btn"
-        :class="{ active: connectionMode === null, disabled: !connectionMode }"
+
         @click="handleDisconnect"
-        :disabled="!connectionMode"
       >
         <svg viewBox="0 0 1024 1024" width="20" height="20">
           <g transform="scale(1) translate(0, 0)">
@@ -124,6 +209,8 @@ function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
     </div>
 
     <div class="settings-grid">
+
+      <!-- 视频来源 -->
       <div class="setting-card">
         <div class="card-header">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -135,8 +222,8 @@ function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
         <div class="option-group">
           <button
             class="option-btn"
-            :class="{ active: videoSource === 'screen' }"
-            @click="selectVideoSource('screen')"
+            :class="{ active: videoSource === 'display' }"
+            @click="selectVideoSource('display')"
           >
             手机屏幕
           </button>
@@ -157,6 +244,7 @@ function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
         </div>
       </div>
 
+      <!-- 画质 -->
       <div class="setting-card">
         <div class="card-header">
           <svg viewBox="0 0 1024 1024" width="22" height="22">
@@ -201,6 +289,7 @@ function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
         </div>
       </div>
 
+      <!-- 比特率 -->
       <div class="setting-card">
         <div class="card-header">
           <svg viewBox="0 0 1024 1024" width="22" height="22">
@@ -248,6 +337,7 @@ function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
         </div>
       </div>
 
+      <!-- 音频来源 -->
       <div class="setting-card">
         <div class="card-header">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -258,8 +348,8 @@ function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
         <div class="option-group">
           <button
             class="option-btn"
-            :class="{ active: audioSource === 'internal' }"
-            @click="selectAudioSource('internal')"
+            :class="{ active: audioSource === 'output' }"
+            @click="selectAudioSource('output')"
           >
             内部输入
           </button>
@@ -280,6 +370,7 @@ function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
         </div>
       </div>
 
+      <!-- 帧率限制 -->
       <div class="setting-card">
         <div class="card-header">
           <svg viewBox="0 0 1024 1024" width="22" height="22">
@@ -323,6 +414,34 @@ function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
           </button>
         </div>
       </div>
+
+      <!-- 帧率显示 -->
+      <div class="setting-card">
+        <div class="card-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" fill="none"/>
+            <path d="M8 12h8M12 8v8" stroke="currentColor"/>
+          </svg>
+          <span class="card-title">帧率显示</span>
+        </div>
+        <div class="option-group">
+          <button
+            class="option-btn"
+            :class="{ active: showFps === true }"
+            @click="selectShowFps(true)"
+          >
+            开启
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: showFps === false }"
+            @click="selectShowFps(false)"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+
     </div>
 
     <div class="connection-status" v-if="connectionMode">

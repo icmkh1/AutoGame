@@ -5,6 +5,7 @@ import Filelist from './components/Filelist.vue'
 import Settings from './components/Settings.vue'
 import Logeditor from './components/Logeditor.vue'
 import Screencast from './components/Screencast.vue'
+import ScreenCastView from './components/ScreenCastView.vue'
 import './App.css'
 
 type Theme = 'light' | 'dark'
@@ -18,6 +19,7 @@ const currentView = ref('hidden')
 const isMaximized = ref(false)
 const currentTheme = ref<Theme>('dark')
 const hasNewLogError = ref(false)
+const screencastMode = ref<'usb' | 'wireless' | null>(null)
 const appInfo = ref({ name: 'AutoGame', version: '0.0.0', homepage: '', instructions: '' })
 let logCheckInterval: number | null = null
 
@@ -103,8 +105,17 @@ async function clearNewLogErrorFlag() {
   }
 }
 
+function handleScreencastNavigate(mode: 'usb' | 'wireless') {
+  screencastMode.value = mode
+}
+
+function handleScreencastBack() {
+  screencastMode.value = null
+}
+
 function handleNavigate(id: string) {
   currentView.value = id
+  screencastMode.value = null
   if (id === 'logs') {
     clearNewLogErrorFlag()
   }
@@ -202,7 +213,15 @@ provide('appInfo', appInfo)
             @updateFileName="keymouseSubView.fileName = $event"
             @updateContent="keymouseSubView.content = $event"
           />
-          <Screencast v-else-if="currentView === 'screencast'" />
+          <ScreenCastView
+            v-else-if="screencastMode"
+            :connectionMode="screencastMode"
+            @back="handleScreencastBack"
+          />
+          <Screencast
+            v-else-if="currentView === 'screencast'"
+            @navigate="handleScreencastNavigate"
+          />
           <Settings v-else-if="currentView === 'settings'" />
           <Logeditor
             v-else-if="currentView === 'logs'"

@@ -77,7 +77,7 @@ class FileManager:
         """
         try:
             if self.config_path.exists():
-                with open(self.config_path, 'r', encoding='utf-8') as f:
+                with open(self.config_path, 'r', encoding='utf-8-sig') as f:
                     self.config = json.load(f)
             else:
                 self.config_path.mkdir(parents=True, exist_ok=True)

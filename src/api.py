@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+from .scrcpy_manager import ScrcpyManager
 
 class Api:
     def __init__(self, logger, macro, file_manager):
@@ -12,6 +13,7 @@ class Api:
 
         self._window = None
         self._maximized = False
+        self.scrcpy = ScrcpyManager()
 
     def get_config_file(self):
         config = self.file_manager.load_config_file()
@@ -135,6 +137,38 @@ class Api:
         if self._window:
             self._window.evaluate_js('window.saveFile()')
 
+
+    # ------------------------------------------------------------------ #
+    # Scrcpy / screencast API
+    # ------------------------------------------------------------------ #
+
+    def scrcpy_start(self, serial=None, config=None):
+        return self.scrcpy.start(serial, config)
+
+    def scrcpy_stop(self):
+        return self.scrcpy.stop()
+
+    def scrcpy_status(self):
+        return self.scrcpy.status()
+
+    def scrcpy_poll_events(self, limit=30):
+        return self.scrcpy.poll_events(limit)
+
+    def scrcpy_send_touch(self, action, x, y, width, height):
+        return self.scrcpy.send_touch(action, x, y, width, height)
+
+    def scrcpy_send_keycode(self, keycode, action=0):
+        return self.scrcpy.send_keycode(keycode, action)
+
+    def scrcpy_set_clipboard(self, text):
+        return self.scrcpy.set_clipboard(text)
+
+    def scrcpy_switch_to_wireless(self, serial=None):
+        return self.scrcpy.switch_to_wireless(serial)
+
+    def scrcpy_discover_usb_serial(self):
+        return self.scrcpy.discover_usb_serial()
+
     def __dir__(self):
         return [
             'get_app_info', 'minimize', 'close', 'toggle_maximize', 'open_url',
@@ -144,4 +178,7 @@ class Api:
             'create_new_file', 'rename_file', 'open_folder', 'delete_file',
             'get_memory_logs', 'get_memory_logs_count', 'get_memory_logs_since', 'clear_memory_logs', 'has_new_error', 'clear_new_error_flag',
             'disable_json_editor', 'enable_json_editor', 'save_json_file',
+            'scrcpy_start', 'scrcpy_stop', 'scrcpy_status', 'scrcpy_poll_events',
+            'scrcpy_send_touch', 'scrcpy_send_keycode', 'scrcpy_set_clipboard',
+            'scrcpy_switch_to_wireless', 'scrcpy_discover_usb_serial',
         ]
