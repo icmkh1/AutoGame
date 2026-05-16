@@ -13,7 +13,5 @@ debug.log
 debug.py
 logging/
 releases/
+scrcpy-example/
 data/target_image/screenshot.png
-
-scrcpy-4.0/
-scrcpy-win64-v4.0/
