@@ -487,20 +487,6 @@ class ScrcpyManager:
             return {"ok": True}
         return {"ok": False, "error": f"unknown key: {key_name}"}
 
-    def send_normalized_touch(self, action: int, x: float, y: float) -> dict:
-        """Send touch event with normalized 0.0-1.0 coordinates.
-        Converts to session pixel coordinates using last known session size.
-        """
-        if self._client is None or self._client.control is None:
-            return {"ok": False, "error": "control stream is not running"}
-        if not self._last_session:
-            return {"ok": False, "error": "no session size"}
-        sw, sh = self._last_session
-        px = max(0, min(sw, int(x * sw)))
-        py = max(0, min(sh, int(y * sh)))
-        return self._submit(self._send_touch(action, px, py, sw, sh))
-
-
     def key_mapping_swipe(self, path_data: list) -> dict:
         if self._client is None or self._client.control is None:
             return {"ok": False, "error": "control stream is not running"}

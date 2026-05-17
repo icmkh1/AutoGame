@@ -1,0 +1,18 @@
+{
+    "version": 1,
+    "name": "默讛问key",
+    "autoHideMouse": false,
+    "controls": [
+        {
+            "id": "ctrl_1778998620019_n8v1",
+            "type": "single",
+            "key": "A",
+            "label": "A",
+            "x": 0.152317880794702,
+            "y": 0.5022288261515602,
+            "radius": 25
+        }
+    ],
+    "dpad": [],
+    "swipes": []
+}

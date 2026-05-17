@@ -1,268 +1,10 @@
-﻿.screencast-viewer {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: row;
-  overflow: hidden;
-  position: relative;
-  padding: 26px 4px;
-}
+﻿import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-.screencast-viewer.fullscreen-mode {
-  padding: 0;
-}
+with open("temp_scv_css.css", "r", encoding="utf-8") as f:
+    content = f.read()
 
-.screencast-viewer.fullscreen-mode .viewer-sidebar,
-.screencast-viewer.fullscreen-mode .viewer-sidebar-right {
-  display: none !important;
-}
-
-.screencast-viewer.fullscreen-mode .viewport {
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  margin: 0;
-  flex: 1;
-}
-
-.screencast-viewer.fullscreen-mode .screen-wrapper {
-  border-radius: 0;
-  /* 保持原始比例，不拉伸 */
-  /* 不在这里强制设置 width 和 height，让 computed 的 screenStyle 来控制 */
-}
-
-.screencast-viewer.fullscreen-mode .screen-wrapper[data-theme="dark"],
-.screencast-viewer.fullscreen-mode .screen-wrapper[data-theme="light"] {
-  box-shadow: none;
-}
-
-.viewer-sidebar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0px 6px;
-  flex-shrink: 0;
-  z-index: 10;
-}
-
-.stop-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0px 18px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.stop-btn {
-  padding: 6px 8px;
-}
-
-.stop-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-.stop-btn:hover {
-  transform: translateY(-1px);
-}
-
-.screencast-viewer[data-theme="dark"] .stop-btn {
-  background-color: #1F2430;
-  color: #e0e0e0;
-}
-
-.screencast-viewer[data-theme="dark"] .stop-btn:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-}
-
-.screencast-viewer[data-theme="light"] .stop-btn {
-  background-color: #E0E9FF;
-  color: #1F2430;
-}
-
-.screencast-viewer[data-theme="light"] .stop-btn:hover {
-  background-color: rgba(0, 0, 0, 0.15);
-}
-
-
-.viewport {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: 0px;
-}
-
-.viewer-sidebar-right {
-  justify-content: space-between;
-  padding: 12px 6px;
-}
-
-.sidebar-top {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sidebar-bottom {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.btn-wrapper {
-  position: relative;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: transparent;
-}
-
-.action-btn svg {
-  width: 18px;
-  height: 18px;
-  stroke-width: 2;
-}
-
-.action-btn:hover {
-  transform: translateY(-1px);
-}
-
-.screencast-viewer[data-theme="dark"] .action-btn {
-  color: #e0e0e0;
-}
-
-.screencast-viewer[data-theme="light"] .action-btn {
-  color: #1F2430;
-}
-
-.screencast-viewer[data-theme="dark"] .action-btn:hover {
-  background-color: rgba(255, 255, 255, 0.15);
-}
-
-.screencast-viewer[data-theme="light"] .action-btn:hover {
-  background-color: rgba(0, 0, 0, 0.15);
-}
-
-.tooltip {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 6px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 100;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.screencast-viewer[data-theme="dark"] .btn-wrapper .tooltip {
-  background-color: #2d2d44;
-  color: #ffffff;
-}
-
-.screencast-viewer[data-theme="light"] .btn-wrapper .tooltip {
-  background-color: #ffffff;
-  color: #1F2430;
-}
-
-.tooltip-left {
-  right: calc(100% + 8px);
-}
-
-.tooltip-enter-active,
-.tooltip-leave-active {
-  transition: opacity 0.15s, transform 0.15s;
-}
-
-.tooltip-enter-from,
-.tooltip-leave-to {
-  opacity: 0;
-  transform: translateY(-50%) translateX(-4px);
-}
-
-.screen-wrapper {
-  position: relative;
-  border-radius: 8px;
-  overflow: hidden;
-  transition: width 0.2s, height 0.2s;
-}
-
-.screencast-viewer[data-theme="dark"] .screen-wrapper {
-  background-color: #000;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.5);
-}
-
-.screencast-viewer[data-theme="light"] .screen-wrapper {
-  background-color: #000;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 8px 32px rgba(0, 0, 0, 0.15);
-}
-
-.screen-wrapper canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  touch-action: none;
-}
-
-.fps-overlay {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-  color: #00FFFF;
-  font-size: 13px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-  pointer-events: none;
-  z-index: 5;
-  background: rgba(0, 0, 0, 0.35);
-  padding: 2px 6px;
-  border-radius: 3px;
-  line-height: 1.4;
-}
-
-.placeholder {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  color: #fff;
-  font-size: 14px;
-}
-
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #60A5FA;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+append = '''
 
 /* ================================================================ */
 /* Key Mapping Overlay
@@ -270,12 +12,9 @@
 
 .key-mapping-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   z-index: 50;
-  background: rgba(0, 0, 59, 0.45);
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   overflow: hidden;
 }
@@ -368,18 +107,6 @@
   pointer-events: none;
 }
 
-.key-control.dpad .dpad-circle {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 100%;
-  height: 100%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  background: rgba(59, 130, 246, 0.15);
-}
-
 .dpad-circle {
   position: absolute;
   top: 50%;
@@ -436,15 +163,6 @@
 .resize-handle.bl { bottom: -6px; left: -6px; cursor: sw-resize; }
 
 /* ---- Sidebar ---- */
-.km-center-wrapper {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-}
-
 .key-mapping-sidebar {
   width: 220px;
   background: rgba(30, 30, 50, 0.95);
@@ -664,4 +382,10 @@
 .key-mapping-overlay.cursor-auto-hide {
   cursor: none;
 }
+'''
 
+content = content.rstrip() + append
+
+with open("temp_scv_css.css", "w", encoding="utf-8") as f:
+    f.write(content)
+print(f"OK: {len(content)}")

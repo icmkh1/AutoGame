@@ -1,4 +1,4 @@
-import shutil
+﻿import shutil
 import json
 import ast
 import tomli
@@ -351,3 +351,78 @@ class FileManager:
         except Exception as e:
             self.logger.error(f'清除错误标记 报错信息：{e}')
             return False
+
+
+    # ------------------------------------------------------------------------------#
+    # Key mapping file operations
+    # ------------------------------------------------------------------------------#
+
+    def get_key_mapping_files(self):
+        mapping_dir = self.path_manager.key_mapping_dir
+        mapping_dir.mkdir(parents=True, exist_ok=True)
+        file_list = [f.stem for f in mapping_dir.glob('*.json') if f.suffix == '.json']
+        if not file_list:
+            default_data = {'version': 1, 'name': '默讯问Key', 'autoHideMouse': False, 'controls': [], 'dpad': [], 'swipes': []}
+            with open(mapping_dir / '默讛问key.json', 'w', encoding='utf-8') as f:
+                json.dump(default_data, f, ensure_ascii=False, indent=4)
+            file_list = ['默讻问key']
+        return file_list
+
+    def load_key_mapping_file(self, file_name):
+        file_path = self.path_manager.key_mapping_dir / f'{file_name}.json'
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            self.logger.error(f'load_key_mapping_file error: {e}')
+            return False
+
+    def save_key_mapping_file(self, file_name, data):
+        mapping_dir = self.path_manager.key_mapping_dir
+        mapping_dir.mkdir(parents=True, exist_ok=True)
+        file_path = mapping_dir / f'{file_name}.json'
+
+        try:
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            return True
+        except Exception as e:
+            self.logger.error(f'save_key_mapping_file error: {e}')
+            return False
+
+    def create_key_mapping_file(self):
+        try:
+            mapping_dir = self.path_manager.key_mapping_dir
+            existing = [f.stem for f in mapping_dir.glob('*.json')]
+            new_name = ''
+            for i in range(1, 1000):
+                name = f'新륺对位狻{i}'
+                if name not in existing:
+                    new_name = name
+                    break
+            data = {'version': 1, 'name': new_name.replace('New_Keymap_','Keymap ').replace('_',' '), 'autoHideMouse': False, 'controls': [], 'dpad': [], 'swipes': []}
+            with open(mapping_dir / f'{new_name}.json', 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+            return new_name
+        except Exception as e:
+            self.logger.error(f'create_key_mapping_file error: {e}')
+            return False
+
+    def rename_key_mapping_file(self, old_name, new_name):
+        try:
+            p = self.path_manager.key_mapping_dir / f'{old_name}.json'
+            p.rename(self.path_manager.key_mapping_dir / f'{new_name}.json')
+            return True
+        except Exception as e:
+            self.logger.error(f'rename_key_mapping_file error: {e}')
+            return False
+
+    def delete_key_mapping_file(self, file_name):
+        try:
+            p = self.path_manager.key_mapping_dir / f'{file_name}.json'
+            p.unlink()
+            return True
+        except Exception as e:
+            self.logger.error(f'delete_key_mapping_file error: {e}')
+            return False
+

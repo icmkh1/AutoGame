@@ -1,9 +1,8 @@
-﻿
+
 
 import subprocess
 import sys
 from .scrcpy_manager import ScrcpyManager
-from .key_mapping_executor import KeyMappingExecutor
 
 class Api:
     def __init__(self, logger, macro, file_manager):
@@ -15,10 +14,8 @@ class Api:
         self._window = None
         self._maximized = False
         self.scrcpy = ScrcpyManager()
-        self.key_mapping_executor = KeyMappingExecutor(self.scrcpy)
 
         self.key_mapping_hook = None
-        self.key_mapping_executor = None
 
     def get_config_file(self):
         config = self.file_manager.load_config_file()
@@ -233,38 +230,10 @@ class Api:
         data = self.file_manager.load_key_mapping_file(file_name)
         if not data:
             return {"ok": False, "error": "failed to load key mapping"}
-        self.scrcpy.apply_key_mapping(data)
-        if self.key_mapping_executor:
-            self.key_mapping_executor.apply(data)
-        return {"ok": True}
+        return self.scrcpy.apply_key_mapping(data)
 
     def remove_key_mapping(self):
-        self.scrcpy.remove_key_mapping()
-        if self.key_mapping_executor:
-            self.key_mapping_executor.remove()
-        return {"ok": True}
-
-    def scrcpy_send_normalized_touch(self, action, x, y):
-        return self.scrcpy.send_normalized_touch(action, x, y)
-
-    def set_key_mapping_executor(self, executor):
-        self.key_mapping_executor = executor
-        return {"ok": True}
-
-    def exec_key_mapping_down(self, key_name):
-        if hasattr(self, 'key_mapping_executor') and self.key_mapping_executor:
-            return {"ok": self.key_mapping_executor.on_key_down(key_name)}
-        return {"ok": False, "error": "executor not initialized"}
-
-    def exec_key_mapping_up(self, key_name):
-        if hasattr(self, 'key_mapping_executor') and self.key_mapping_executor:
-            return {"ok": self.key_mapping_executor.on_key_up(key_name)}
-        return {"ok": False, "error": "executor not initialized"}
-
-    def get_key_mapping_mapped_keys(self):
-        if hasattr(self, 'key_mapping_executor') and self.key_mapping_executor:
-            return list(self.key_mapping_executor.get_mapped_keys())
-        return []
+        return self.scrcpy.remove_key_mapping()
 
     def key_mapping_trigger(self, key_name, action):
         return self.scrcpy.key_mapping_trigger(key_name, action)
@@ -313,12 +282,6 @@ class Api:
             'key_mapping_swipe',
             'get_android_keycode',
             'set_key_mapping_auto_hide',
-            'scrcpy_send_normalized_touch',
-            'set_key_mapping_executor',
-            'exec_key_mapping_down',
-            'exec_key_mapping_up',
-            'get_key_mapping_mapped_keys',
         ]
-
 
 

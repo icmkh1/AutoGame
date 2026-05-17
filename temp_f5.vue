@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="screencast-viewer" :class="{ 'fullscreen-mode': isFullscreen }" :data-theme="currentTheme" @keydown="handleKeydown">
     <div v-if="!isFullscreen" class="viewer-sidebar">
       <button class="stop-btn" @click="handleStop">
@@ -19,8 +19,8 @@
           <div class="spinner"></div>
           <p>{{ statusText }}</p>
         </div>
-
-<!-- Key Mapping Overlay -->
+      </div>
+      <!-- Key Mapping Overlay -->
       <div v-if="showKeyMapping" class="key-mapping-overlay"
            :class="{ 'cursor-auto-hide': autoHideMouse && !altPressed }"
            @mousedown.left="onOverlayMouseDown"
@@ -29,13 +29,12 @@
            @click.right.prevent="onOverlayRightClick"
            @contextmenu.prevent
            ref="overlayRef">
-        <div class="km-center-wrapper">
-<div class="key-mapping-canvas" ref="kmCanvasRef" :style="screenStyle" @mousedown.left.stop="onCanvasMouseDown($event)">
+        <div class="key-mapping-canvas" ref="kmCanvasRef" @mousedown.left.stop="onCanvasMouseDown($event)">
           <!-- Single controls -->
           <div v-for="ctrl in controls" :key="ctrl.id"
                class="key-control"
                :class="{ listening: editingControlId === ctrl.id }"
-               :style="ctrlStyle(ctrl)"
+               :style="{ left: ctrl.x + 'px', top: ctrl.y + 'px', width: (ctrl.radius*2) + 'px', height: (ctrl.radius*2) + 'px' }"
                @mousedown.left.stop="startDrag($event, ctrl)">
             <div class="control-circle">
               <span class="control-label">{{ ctrl.label || (editingControlId === ctrl.id ? "..." : "?") }}</span>
@@ -45,9 +44,9 @@
           <!-- DPad controls -->
           <div v-for="dpad in dpads" :key="dpad.id"
                class="key-control dpad"
-               :style="ctrlStyle(dpad, true)" @mousedown.left.stop="startDrag($event, dpad, 'dpad')">
-            <div class="dpad-rect"></div>
-            <div class="dpad-circle"></div>
+               :style="{ left: dpad.x + 'px', top: dpad.y + 'px', width: dpad.size + 'px', height: dpad.size + 'px' }" @mousedown.left.stop="startDrag($event, dpad, 'dpad')">
+            <div class="dpad-rect" :style="{ width: dpad.size + 'px', height: dpad.size + 'px' }"></div>
+            <div class="dpad-circle" :style="{ width: dpad.size + 'px', height: dpad.size + 'px' }"></div>
             <div v-for="dir in ['up','down','left','right']" :key="dir"
                  class="dpad-key"
                  :class="{ listening: editingDpadId === dpad.id && editingDpadDir === dir }"
@@ -65,7 +64,7 @@
           <div v-for="swp in swipes" :key="swp.id"
                class="key-control"
                :class="{ listening: editingControlId === swp.id }"
-               :style="ctrlStyle(swp)"
+               :style="{ left: swp.x + 'px', top: swp.y + 'px', width: (swp.radius*2) + 'px', height: (swp.radius*2) + 'px' }"
                @mousedown.left.stop="startDrag($event, swp, 'swipe')">
             <div class="control-circle">
               <span class="control-label">{{ swp.label || "滑动" }}</span>
@@ -77,7 +76,6 @@
             <polyline :points="swipePoints.map(p => p.x + ',' + p.y).join(' ')"></polyline>
           </svg>
         </div>
-</div>
         <!-- Sidebar -->
         <div class="key-mapping-sidebar">
           <div class="km-file-header">
@@ -118,8 +116,6 @@
           <div @click="startSwipeRecording">滑动键位</div>
         </div>
       </div>
-</div>
-
     </div>
     <div v-if="!isFullscreen" class="viewer-sidebar viewer-sidebar-right">
       <div class="sidebar-top">
@@ -357,6 +353,10 @@ function hideTooltip(key: string) {
 // ------------------------------------------------------------------ #
 // Control helpers
 // ------------------------------------------------------------------ #
+
+function scrcpyExpandScreen() {
+  callApi("scrcpy_expand_screen").catch(() => {})
+}
 
 function scrcpyVolumeUp() {
   callApi("scrcpy_volume_up").catch(() => {})
@@ -735,21 +735,23 @@ const isRecordingSwipe = ref(false)
 const pendingSwipe = ref(false)
 const swipePoints = ref<{x:number,y:number,delayMs:number}[]>([])
 const swipeStartTime = ref(0)
-function toNormalizedCoords(clientX: number, clientY: number) {
-  if (!canvas.value) return { x: 0, y: 0 }
+function toSessionCoords(clientX: number, clientY: number): {x:number, y:number} {
+  if (!canvas.value) return { x: clientX, y: clientY }
   const rect = canvas.value.getBoundingClientRect()
-  if (rect.width <= 0 || rect.height <= 0) return { x: 0, y: 0 }
+  const sw = session.value.width || 1
+  const sh = session.value.height || 1
   return {
-    x: (clientX - rect.left) / rect.width,
-    y: (clientY - rect.top) / rect.height,
+    x: Math.round((clientX - rect.left) / rect.width * sw),
+    y: Math.round((clientY - rect.top) / rect.height * sh),
   }
 }
-
 const renamingFile = ref<string | null>(null)
 const renameInput = ref("")
 const renameInputRef = ref<HTMLInputElement | null>(null)
+const overlayRef = ref<HTMLElement | null>(null)
 const kmCanvasRef = ref<HTMLElement | null>(null)
 let dragTarget: any = null
+let dragType = ""
 let dragOffsetX = 0
 let dragOffsetY = 0
 let resizeTarget: any = null
@@ -782,32 +784,6 @@ const KEY_LABELS: Record<string, string> = {
   "LWin": "左Win", "RWin": "右Win",
 }
 
-
-
-function ctrlStyle(item: any, isDpad = false) {
-  if (!canvas.value) return {}
-  const rect = canvas.value.getBoundingClientRect()
-  const pw = rect.width, ph = rect.height
-  if (pw <= 0 || ph <= 0) return {}
-  if (isDpad) {
-    const s = (item.size || 0.06) * pw
-    return { left: (item.x*pw - s/2)+"px", top: (item.y*ph - s/2)+"px", width: s+"px", height: s+"px" }
-  }
-  const sw = session.value.width || 1920
-  const r = (item.radius || 25) * (pw/sw)
-  return { left: (item.x*pw - r)+"px", top: (item.y*ph - r)+"px", width: (r*2)+"px", height: (r*2)+"px" }
-}
-
-function getDpadKeyStyle(dpad: any, dir: string) {
-  if (!canvas.value) return {}
-  const rect = canvas.value.getBoundingClientRect()
-  const pw = rect.width
-  if (pw <= 0) return {}
-  const s = (dpad.size || 0.06) * pw, r = s/2, o = r*0.55
-  const angles: Record<string, number> = {up:-90,down:90,left:180,right:0}
-  const a = (angles[dir] ?? 0) * Math.PI/180
-  return { left: (r+o*Math.cos(a)-16)+"px", top: (r+o*Math.sin(a)-12)+"px", width:"32px", height:"24px", lineHeight:"24px", textAlign:"center" as const, fontSize:"14px", position:"absolute" as const, cursor:"pointer", background:"rgba(255,255,255,0.2)", borderRadius:"4px", color:"#fff", userSelect:"none" as const }
-}
 function controlId(prefix: string): string {
   return prefix + "_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6)
 }
@@ -943,13 +919,13 @@ function onCanvasMouseDown(e: MouseEvent) {
     pendingSwipe.value = false
     isRecordingSwipe.value = true
     swipePoints.value = []
-    const pos = toNormalizedCoords(e.clientX, e.clientY)
+    const pos = toSessionCoords(e.clientX, e.clientY)
     swipePoints.value = [{ x: pos.x, y: pos.y, delayMs: 0 }]
     swipeStartTime.value = Date.now()
     return
   }
   if (isRecordingSwipe.value) return
-  const pos = toNormalizedCoords(e.clientX, e.clientY)
+  const pos = toSessionCoords(e.clientX, e.clientY)
 
   const ctrl = {
     id: controlId("ctrl"),
@@ -969,12 +945,13 @@ function onOverlayRightClick(e: MouseEvent) {
 function createDirectionKey() {
   contextMenu.value.show = false
   if (!kmCanvasRef.value) return
-  const norm = toNormalizedCoords(contextMenu.value.x, contextMenu.value.y)
-  const sizeNorm = 120 / (session.value.width || 1920)
+  const rect = kmCanvasRef.value.getBoundingClientRect()
+  const cx = Math.round(contextMenu.value.x - rect.left + kmCanvasRef.value.scrollLeft)
+  const cy = Math.round(contextMenu.value.y - rect.top + kmCanvasRef.value.scrollTop)
   const dpad = {
     id: controlId("dpad"),
-    x: norm.x, y: norm.y,
-    size: sizeNorm,
+    x: cx, y: cy,
+    size: 120,
     keys: {
       up: { key: "W", label: "W" },
       down: { key: "S", label: "S" },
@@ -991,13 +968,13 @@ function startSwipeRecording() {
   pendingSwipe.value = true
 }
 
-function onOverlayMouseDown() {
+function onOverlayMouseDown(e: MouseEvent) {
   // Handled by onCanvasMouseDown
 }
 
 function onOverlayMouseMove(e: MouseEvent) {
   if (isRecordingSwipe.value && swipeStartTime.value > 0 && kmCanvasRef.value) {
-    const pos = toNormalizedCoords(e.clientX, e.clientY)
+    const pos = toSessionCoords(e.clientX, e.clientY)
     const x = pos.x
     const y = pos.y
     const delay = Date.now() - swipeStartTime.value
@@ -1008,19 +985,34 @@ function onOverlayMouseMove(e: MouseEvent) {
     }
   }
 
-  // Drag handling (normalized coords)
+  // Drag handling
   if (dragTarget) {
     if (!kmCanvasRef.value) return
-    const norm = toNormalizedCoords(e.clientX, e.clientY)
-    dragTarget.x = Math.max(0, Math.min(1, norm.x - dragOffsetX))
-    dragTarget.y = Math.max(0, Math.min(1, norm.y - dragOffsetY))
+    const rect = kmCanvasRef.value.getBoundingClientRect()
+    const newX = Math.round(e.clientX - rect.left + kmCanvasRef.value.scrollLeft - dragOffsetX)
+    const newY = Math.round(e.clientY - rect.top + kmCanvasRef.value.scrollTop - dragOffsetY)
+    dragTarget.x = Math.max(0, newX)
+    dragTarget.y = Math.max(0, newY)
+  }
+
+  // DPad resize
+  if (resizeTarget && kmCanvasRef.value) {
+    const rect = kmCanvasRef.value.getBoundingClientRect()
+    const mx = e.clientX - rect.left + kmCanvasRef.value.scrollLeft
+    const my = e.clientY - rect.top + kmCanvasRef.value.scrollTop
+    const dx = mx - resizeTarget.x
+    const dy = my - resizeTarget.y
+    const newSize = Math.max(60, Math.round(Math.hypot(dx, dy) * 2))
+    if (newSize !== resizeTarget.size) {
+      resizeTarget.size = newSize
+    }
   }
 }
 
 function onOverlayMouseUp(e: MouseEvent) {
   if (isRecordingSwipe.value && swipePoints.value.length > 0 && kmCanvasRef.value) {
     isRecordingSwipe.value = false
-    const pos = toNormalizedCoords(e.clientX, e.clientY)
+    const pos = toSessionCoords(e.clientX, e.clientY)
     const ex = pos.x
     const ey = pos.y
     // Add last point scaled to session cords
@@ -1047,43 +1039,25 @@ function onOverlayMouseUp(e: MouseEvent) {
     dragTarget = null
     autoSave()
   }
-  // cleanup by onResizeMouseUp
-  resizeTarget = null
+  if (resizeTarget) {
+    resizeTarget = null
+    autoSave()
+  }
 }
 
-function startDrag(e: MouseEvent, ctrl: any, _type = "single") {
+function startDrag(e: MouseEvent, ctrl: any, type = "single") {
   if (!kmCanvasRef.value) return
-  if (editingControlId.value) return
-  const norm = toNormalizedCoords(e.clientX, e.clientY)
+  const rect = kmCanvasRef.value.getBoundingClientRect()
   dragTarget = ctrl
-  dragOffsetX = norm.x - ctrl.x
-  dragOffsetY = norm.y - ctrl.y
+  dragType = type
+  dragOffsetX = e.clientX - rect.left + kmCanvasRef.value.scrollLeft - ctrl.x
+  dragOffsetY = e.clientY - rect.top + kmCanvasRef.value.scrollTop - ctrl.y
 }
 
 function startDpadResize(e: MouseEvent, dpad: any) {
   resizeTarget = dpad
   resizeStartSize = dpad.size
   resizeStartMouse = { x: e.clientX, y: e.clientY }
-  document.addEventListener('mousemove', onResizeMouseMove)
-  document.addEventListener('mouseup', onResizeMouseUp)
-}
-
-function onResizeMouseMove(e: MouseEvent) {
-  if (!resizeTarget || !kmCanvasRef.value) return
-  const rect = kmCanvasRef.value.getBoundingClientRect()
-  const dx = (e.clientX - resizeStartMouse.x) / rect.width
-  const dy = (e.clientY - resizeStartMouse.y) / rect.height
-  const delta = Math.max(Math.abs(dx), Math.abs(dy)) * (dx + dy >= 0 ? 1 : -1)
-  const minSize = 60 / (session.value.width || 1920)
-  const maxSize = 0.5
-  resizeTarget.size = Math.max(minSize, Math.min(maxSize, resizeStartSize + delta))
-}
-
-function onResizeMouseUp() {
-  resizeTarget = null
-  document.removeEventListener('mousemove', onResizeMouseMove)
-  document.removeEventListener('mouseup', onResizeMouseUp)
-  autoSave()
 }
 
 function editDpadKey(dpad: any, dir: string) {
@@ -1100,7 +1074,19 @@ function removeControl(id: string) {
 }
 
 // ---- DPad key position calculation ----
-
+function getDpadKeyStyle(dpad: any, dir: string) {
+  const r = dpad.size / 2
+  const dist = r * 0.55
+  const angles: Record<string, number> = { up: -90, down: 90, left: 180, right: 0 }
+  const rad = (angles[dir] * Math.PI) / 180
+  const kx = r + Math.cos(rad) * dist
+  const ky = r + Math.sin(rad) * dist
+  return {
+    left: kx + 'px',
+    top: ky + 'px',
+    transform: 'translate(-50%, -50%)',
+  }
+}
 
 // ---- Auto-save ----
 let autoSaveTimer = 0
@@ -1147,7 +1133,7 @@ function setupKeyCapture() {
     }
   }
   document.addEventListener("mousedown", mouseCaptureHandler, true)
-
+  
   keyCaptureHandler = (e: KeyboardEvent) => {
     if (editingControlId.value) {
       e.preventDefault()
@@ -1233,11 +1219,9 @@ async function closeKeyMapping() {
   swipePoints.value = []
   teardownKeyCapture()
   showKeyMapping.value = false
-  // Activate auto-hide mouse if enabled (only on close)
+  // Activate auto-hide mouse if enabled
   if (autoHideMouse.value) {
     callApi("set_key_mapping_auto_hide", true).catch(() => {})
-  } else {
-    callApi("set_key_mapping_auto_hide", false).catch(() => {})
   }
   // Keep key mapping active for execution
   isKeyMappingActive.value = true
@@ -1262,8 +1246,6 @@ onMounted(async () => {
   // 添加键盘事件监听
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('keyup', handleKeyup)
-  window.addEventListener('mousedown', handleMouseDown)
-  window.addEventListener('mouseup', handleMouseUp)
 
   setupAutoHideEvents()
 
@@ -1275,14 +1257,12 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keyup', handleKeyup)
-  window.removeEventListener('mousedown', handleMouseDown)
-  window.removeEventListener('mouseup', handleMouseUp)
   teardownKeyCapture()
 
   stopConnection()
 })
 
-function findControlByKey(key: string) {
+function findControlByKey(key) {
   for (const ctrl of controls.value) {
     if (ctrl.key === key) return { ...ctrl, kind: "single" }
   }
@@ -1297,71 +1277,38 @@ function findControlByKey(key: string) {
   return null
 }
 
-function execKeyDown(key: string) {
+function execKeyDown(key) {
   const mapped = findControlByKey(key)
   if (!mapped || !session.value.width || !session.value.height) return
   const sw = session.value.width
   const sh = session.value.height
   if (mapped.kind === "single") {
-    const sx = Math.round(mapped.x * sw)
-    const sy = Math.round(mapped.y * sh)
-    callApi("scrcpy_send_touch", 0, sx, sy, sw, sh).catch(() => {})
+    callApi("scrcpy_send_touch", 0, mapped.x, mapped.y, sw, sh).catch(() => {})
   } else if (mapped.kind === "dpad") {
-    const sx = Math.round(mapped.x * sw)
-    const sy = Math.round(mapped.y * sh)
-    const dirOffsets: Record<string, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
+    const dirOffsets = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
     const [dx, dy] = dirOffsets[mapped.dir] || [0, 0]
-    const dist = mapped.size * sw * 0.4
-    const ex = Math.round(sx + dx * dist)
-    const ey = Math.round(sy + dy * dist)
-    callApi("scrcpy_send_touch", 0, sx, sy, sw, sh).catch(() => {})
+    const dist = mapped.size * 0.4
+    const ex = Math.round(mapped.x + dx * dist)
+    const ey = Math.round(mapped.y + dy * dist)
+    callApi("scrcpy_send_touch", 0, mapped.x, mapped.y, sw, sh).catch(() => {})
     callApi("scrcpy_send_touch", 2, ex, ey, sw, sh).catch(() => {})
     callApi("scrcpy_send_touch", 1, ex, ey, sw, sh).catch(() => {})
   } else if (mapped.kind === "swipe" && mapped.path && mapped.path.length > 1) {
-    const pathPx = mapped.path.map((p: any) => ({
-      x: Math.round(p.x * sw),
-      y: Math.round(p.y * sh),
-      delayMs: p.delayMs
-    }))
-    callApi("key_mapping_swipe", pathPx).catch(() => {})
+    callApi("key_mapping_swipe", mapped.path).catch(() => {})
   }
-  // Also notify backend executor
-  callApi("exec_key_mapping_down", key).catch(() => {})
 }
 
-function execKeyUp(key: string) {
+function execKeyUp(key) {
   const mapped = findControlByKey(key)
   if (!mapped || !session.value.width || !session.value.height) return
   const sw = session.value.width
   const sh = session.value.height
   if (mapped.kind === "single") {
-    const sx = Math.round(mapped.x * sw)
-    const sy = Math.round(mapped.y * sh)
-    callApi("scrcpy_send_touch", 1, sx, sy, sw, sh).catch(() => {})
-  }
-  // Also notify backend executor
-  callApi("exec_key_mapping_up", key).catch(() => {})
-}
-
-
-
-function handleMouseDown(event: MouseEvent) {
-  if (isKeyMappingActive.value && !showKeyMapping.value && status.value.running) {
-    const btnMap: Record<number, string> = { 0: "MLeft", 1: "MRight", 2: "Middle", 3: "MSide1", 4: "MSide2" }
-    const key = btnMap[event.button]
-    if (key) execKeyDown(key)
+    callApi("scrcpy_send_touch", 1, mapped.x, mapped.y, sw, sh).catch(() => {})
   }
 }
 
-function handleMouseUp(event: MouseEvent) {
-  if (isKeyMappingActive.value && !showKeyMapping.value && status.value.running) {
-    const btnMap: Record<number, string> = { 0: "MLeft", 1: "MRight", 2: "Middle", 3: "MSide1", 4: "MSide2" }
-    const key = btnMap[event.button]
-    if (key) execKeyUp(key)
-  }
-}
-
-function handleKeyup(event: KeyboardEvent) {
+function handleKeyup(event) {
   if (isKeyMappingActive.value && !showKeyMapping.value && status.value.running) {
     const key = event.key === " " ? "Space" : normalizeKeyName(event.key)
     execKeyUp(key)
