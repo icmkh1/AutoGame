@@ -31,7 +31,7 @@ const screenCastViewRef = ref()
 function toggleScreencastFullscreen() {
   if (screencastMode.value && screenCastViewRef.value) {
     isScreencastFullscreen.value = !isScreencastFullscreen.value
-    screenCastViewRef.value.toggleFullscreen()
+    screenCastViewRef.value.toggleScrcpyFullscreen()
   }
 }
 
@@ -63,7 +63,7 @@ const themeColors = {
 
 async function loadConfig() {
   try {
-    const config = await (window as any).pywebview.api.get_config_file()
+    const config = await window.pywebview.api.get_config_file()
     if (config.theme && (config.theme === 'light' || config.theme === 'dark')) {
       currentTheme.value = config.theme
     }
@@ -74,7 +74,7 @@ async function loadConfig() {
 
 async function loadAppInfo() {
   try {
-    const info = await (window as any).pywebview.api.get_app_info()
+    const info = await window.pywebview.api.get_app_info()
     appInfo.value = info
   } catch (e) {
     console.error('Failed to load app info:', e)
@@ -83,9 +83,9 @@ async function loadAppInfo() {
 
 async function saveTheme(theme: Theme) {
   try {
-    const config = await (window as any).pywebview.api.get_config_file()
+    const config = await window.pywebview.api.get_config_file()
     config.theme = theme
-    await (window as any).pywebview.api.save_config_file(config)
+    await window.pywebview.api.save_config_file(config)
   } catch (e) {
     console.error('Failed to save config:', e)
   }
@@ -98,8 +98,8 @@ function toggleTheme() {
 
 async function checkNewLogError() {
   try {
-    if ((window as any).pywebview && (window as any).pywebview.api) {
-      hasNewLogError.value = await (window as any).pywebview.api.has_new_error()
+    if (window.pywebview && window.pywebview.api) {
+      hasNewLogError.value = await window.pywebview.api.has_new_error()
     }
   } catch (e) {
     console.error('Failed to check new log error:', e)
@@ -108,8 +108,8 @@ async function checkNewLogError() {
 
 async function clearNewLogErrorFlag() {
   try {
-    if ((window as any).pywebview && (window as any).pywebview.api) {
-      await (window as any).pywebview.api.clear_new_error_flag()
+    if (window.pywebview && window.pywebview.api) {
+      await window.pywebview.api.clear_new_error_flag()
       hasNewLogError.value = false
     }
   } catch (e) {
@@ -135,15 +135,15 @@ function handleNavigate(id: string) {
 }
 
 async function minimize() {
-  await (window as any).pywebview.api.minimize()
+  await window.pywebview.api.minimize()
 }
 
 async function toggleMaximize() {
-  isMaximized.value = await (window as any).pywebview.api.toggle_maximize()
+  isMaximized.value = await window.pywebview.api.toggle_maximize()
 }
 
 async function close() {
-  await (window as any).pywebview.api.close()
+  await window.pywebview.api.close()
 }
 
 async function pollForConfig() {
@@ -152,7 +152,7 @@ async function pollForConfig() {
 
   while (attempts < maxAttempts) {
     try {
-      if ((window as any).pywebview && (window as any).pywebview.api) {
+      if (window.pywebview && window.pywebview.api) {
         await loadConfig()
         await loadAppInfo()
         return
@@ -174,8 +174,20 @@ onMounted(() => {
   }
 
   // 暴露投屏全屏切换函数给 Python 调用
+  // 同时暴露安全的默认实现给 jsoneditor 相关函数
   if (typeof window !== 'undefined') {
-    (window as any).toggleScreencastFullscreen = toggleScreencastFullscreen
+    window.toggleScreencastFullscreen = toggleScreencastFullscreen
+
+    // 安全的默认实现，不执行任何操作
+    window.disableJsonEditor = () => {
+      // 仅在 jsoneditor 组件中有效
+    }
+    window.enableJsonEditor = () => {
+      // 仅在 jsoneditor 组件中有效
+    }
+    window.saveFile = () => {
+      // 仅在 jsoneditor 组件中有效
+    }
   }
 })
 

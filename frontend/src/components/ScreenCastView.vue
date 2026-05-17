@@ -26,9 +26,9 @@
         <div class="btn-wrapper">
           <button
             class="action-btn"
-            @click="expandScreen"
-            @mouseenter="showTooltip('device-expand-screen', '键位映射')"
-            @mouseleave="hideTooltip('device-expand-screen')"
+            @click="scrcpyExpandScreen"
+            @mouseenter="showTooltip('scrcpy-expand-screen', '键位映射')"
+            @mouseleave="hideTooltip('scrcpy-expand-screen')"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="2" y="4" width="20" height="16" rx="2" ry="2"/>
@@ -40,17 +40,17 @@
             </svg>
           </button>
           <Transition name="tooltip">
-            <div v-if="hoveredButtons['device-expand-screen']" class="tooltip tooltip-left">
-              {{ hoveredButtons['device-expand-screen'] }}
+            <div v-if="hoveredButtons['scrcpy-expand-screen']" class="tooltip tooltip-left">
+              {{ hoveredButtons['scrcpy-expand-screen'] }}
             </div>
           </Transition>
         </div>
         <div class="btn-wrapper">
           <button
             class="action-btn"
-            @click="volumeUp"
-            @mouseenter="showTooltip('device-vol-up', '音量+')"
-            @mouseleave="hideTooltip('device-vol-up')"
+            @click="scrcpyVolumeUp"
+            @mouseenter="showTooltip('scrcpy-vol-up', '音量+')"
+            @mouseleave="hideTooltip('scrcpy-vol-up')"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
@@ -59,17 +59,17 @@
             </svg>
           </button>
           <Transition name="tooltip">
-            <div v-if="hoveredButtons['device-vol-up']" class="tooltip tooltip-left">
-              {{ hoveredButtons['device-vol-up'] }}
+            <div v-if="hoveredButtons['scrcpy-vol-up']" class="tooltip tooltip-left">
+              {{ hoveredButtons['scrcpy-vol-up'] }}
             </div>
           </Transition>
         </div>
         <div class="btn-wrapper">
           <button
             class="action-btn"
-            @click="volumeDown"
-            @mouseenter="showTooltip('device-vol-down', '音量-')"
-            @mouseleave="hideTooltip('device-vol-down')"
+            @click="scrcpyVolumeDown"
+            @mouseenter="showTooltip('scrcpy-vol-down', '音量-')"
+            @mouseleave="hideTooltip('scrcpy-vol-down')"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
@@ -77,17 +77,17 @@
             </svg>
           </button>
           <Transition name="tooltip">
-            <div v-if="hoveredButtons['device-vol-down']" class="tooltip tooltip-left">
-              {{ hoveredButtons['device-vol-down'] }}
+            <div v-if="hoveredButtons['scrcpy-vol-down']" class="tooltip tooltip-left">
+              {{ hoveredButtons['scrcpy-vol-down'] }}
             </div>
           </Transition>
         </div>
         <div class="btn-wrapper">
           <button
             class="action-btn"
-            @click="toggleFullscreen"
-            @mouseenter="showTooltip('fullscreen', isFullscreen ? '退出全屏' : '全屏')"
-            @mouseleave="hideTooltip('fullscreen')"
+            @click="toggleScrcpyFullscreen"
+            @mouseenter="showTooltip('scrcpy-fullscreen', isFullscreen ? '退出全屏' : '全屏')"
+            @mouseleave="hideTooltip('scrcpy-fullscreen')"
           >
             <svg v-if="!isFullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="15 3 21 3 21 9"/>
@@ -103,8 +103,27 @@
             </svg>
           </button>
           <Transition name="tooltip">
-            <div v-if="hoveredButtons['fullscreen']" class="tooltip tooltip-left">
-              {{ hoveredButtons['fullscreen'] }}
+            <div v-if="hoveredButtons['scrcpy-fullscreen']" class="tooltip tooltip-left">
+              {{ hoveredButtons['scrcpy-fullscreen'] }}
+            </div>
+          </Transition>
+        </div>
+        <div class="btn-wrapper">
+          <button
+            class="action-btn"
+            :class="{ active: showFps }"
+            @click="toggleShowFps"
+            @mouseenter="hoveredButtons['toggle-fps'] = showFps ? '隐藏帧率' : '显示帧率'"
+            @mouseleave="hideTooltip('toggle-fps')"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/>
+              <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" fill="none"/>
+            </svg>
+          </button>
+          <Transition name="tooltip">
+            <div v-if="hoveredButtons['toggle-fps']" class="tooltip tooltip-left">
+              {{ hoveredButtons['toggle-fps'] }}
             </div>
           </Transition>
         </div>
@@ -113,26 +132,26 @@
         <div class="btn-wrapper">
           <button
             class="action-btn"
-            @click="handleStop"
-            @mouseenter="showTooltip('back', '返回')"
-            @mouseleave="hideTooltip('back')"
+            @click="scrcpyBack"
+            @mouseenter="showTooltip('scrcpy-back', '返回')"
+            @mouseleave="hideTooltip('scrcpy-back')"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M19 12H5M12 19l-7-7 7-7"/>
             </svg>
           </button>
           <Transition name="tooltip">
-            <div v-if="hoveredButtons['back']" class="tooltip tooltip-left">
-              {{ hoveredButtons['back'] }}
+            <div v-if="hoveredButtons['scrcpy-back']" class="tooltip tooltip-left">
+              {{ hoveredButtons['scrcpy-back'] }}
             </div>
           </Transition>
         </div>
         <div class="btn-wrapper">
           <button
             class="action-btn"
-            @click="switchApp"
-            @mouseenter="showTooltip('switch-app', '多应用')"
-            @mouseleave="hideTooltip('switch-app')"
+            @click="scrcpySwitchApp"
+            @mouseenter="showTooltip('scrcpy-switch-app', '多应用')"
+            @mouseleave="hideTooltip('scrcpy-switch-app')"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="3" y="3" width="7" height="7"/>
@@ -142,17 +161,17 @@
             </svg>
           </button>
           <Transition name="tooltip">
-            <div v-if="hoveredButtons['switch-app']" class="tooltip tooltip-left">
-              {{ hoveredButtons['switch-app'] }}
+            <div v-if="hoveredButtons['scrcpy-switch-app']" class="tooltip tooltip-left">
+              {{ hoveredButtons['scrcpy-switch-app'] }}
             </div>
           </Transition>
         </div>
         <div class="btn-wrapper">
           <button
             class="action-btn"
-            @click="goHome"
-            @mouseenter="showTooltip('home', '主页')"
-            @mouseleave="hideTooltip('home')"
+            @click="scrcpyHome"
+            @mouseenter="showTooltip('scrcpy-home', '主页')"
+            @mouseleave="hideTooltip('scrcpy-home')"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -160,8 +179,8 @@
             </svg>
           </button>
           <Transition name="tooltip">
-            <div v-if="hoveredButtons['home']" class="tooltip tooltip-left">
-              {{ hoveredButtons['home'] }}
+            <div v-if="hoveredButtons['scrcpy-home']" class="tooltip tooltip-left">
+              {{ hoveredButtons['scrcpy-home'] }}
             </div>
           </Transition>
         </div>
@@ -171,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, onMounted, onBeforeUnmount, type Ref } from "vue"
+import { ref, computed, inject, onMounted, onBeforeUnmount, nextTick, type Ref } from "vue"
 import "./ScreenCastView.css"
 
 type Theme = "light" | "dark"
@@ -237,19 +256,19 @@ function hideTooltip(key: string) {
 // Control helpers
 // ------------------------------------------------------------------ #
 
-function expandScreen() {
+function scrcpyExpandScreen() {
   callApi("scrcpy_expand_screen").catch(() => {})
 }
 
-function volumeUp() {
+function scrcpyVolumeUp() {
   callApi("scrcpy_volume_up").catch(() => {})
 }
 
-function volumeDown() {
+function scrcpyVolumeDown() {
   callApi("scrcpy_volume_down").catch(() => {})
 }
 
-function toggleFullscreen() {
+function toggleScrcpyFullscreen() {
   isFullscreen.value = !isFullscreen.value
   emit('fullscreen-change', isFullscreen.value)
 
@@ -259,18 +278,50 @@ function toggleFullscreen() {
   }
 }
 
-function handleKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && isFullscreen.value) {
-    toggleFullscreen()
+async function toggleShowFps() {
+  const newShowFps = !showFps.value
+
+  delete hoveredButtons.value['toggle-fps']
+  showFps.value = newShowFps
+
+  await nextTick()
+  hoveredButtons.value['toggle-fps'] = newShowFps ? '隐藏帧率' : '显示帧率'
+
+  if (!(window as any).pywebview?.api) {
+    console.warn('pywebview API not available')
+    return
+  }
+
+  try {
+    const config = await callApi("get_config_file")
+    if (!config.screencast) config.screencast = {}
+    config.screencast.showFps = newShowFps
+    await callApi("save_config_file", config)
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('ObjectDisposedException')) {
+      console.warn('Window is closing, skipping save')
+    } else {
+      console.error('Failed to save showFps config:', e)
+    }
   }
 }
 
-function switchApp() {
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isFullscreen.value) {
+    toggleScrcpyFullscreen()
+  }
+}
+
+function scrcpyBack() {
+  callApi("scrcpy_back").catch(() => {})
+}
+
+function scrcpySwitchApp() {
   callApi("scrcpy_switch_app").catch(() => {})
 }
 
-function goHome() {
-  callApi("scrcpy_go_home").catch(() => {})
+function scrcpyHome() {
+  callApi("scrcpy_home").catch(() => {})
 }
 
 async function handleStop() {
@@ -587,6 +638,6 @@ onBeforeUnmount(() => {
 
 // 暴露函数给父组件调用
 defineExpose({
-  toggleFullscreen
+  toggleScrcpyFullscreen
 })
 </script>

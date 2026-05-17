@@ -56,6 +56,10 @@ async function loadScreencastConfig() {
 }
 
 async function saveScreencastConfig() {
+  if (!(window as any).pywebview?.api) {
+    console.warn('pywebview API not available')
+    return
+  }
   try {
     const config = await (window as any).pywebview.api.get_config_file()
     config.screencast = {
@@ -68,7 +72,11 @@ async function saveScreencastConfig() {
     }
     await (window as any).pywebview.api.save_config_file(config)
   } catch (e) {
-    console.error('Failed to save screencast config:', e)
+    if (e instanceof Error && e.message.includes('ObjectDisposedException')) {
+      console.warn('Window is closing, skipping save')
+    } else {
+      console.error('Failed to save screencast config:', e)
+    }
   }
 }
 

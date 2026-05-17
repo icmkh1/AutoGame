@@ -127,19 +127,31 @@ class Api:
 
     def disable_json_editor(self):
         if self._window:
-            self._window.evaluate_js('window.disableJsonEditor()')
+            try:
+                self._window.evaluate_js('window.disableJsonEditor && window.disableJsonEditor()')
+            except Exception as e:
+                self.logger.error(f'disable_json_editor 执行失败: {e}')
 
     def enable_json_editor(self):
         if self._window:
-            self._window.evaluate_js('window.enableJsonEditor()')
+            try:
+                self._window.evaluate_js('window.enableJsonEditor && window.enableJsonEditor()')
+            except Exception as e:
+                self.logger.error(f'enable_json_editor 执行失败: {e}')
 
     def save_json_file(self):
         if self._window:
-            self._window.evaluate_js('window.saveFile()')
+            try:
+                self._window.evaluate_js('window.saveFile && window.saveFile()')
+            except Exception as e:
+                self.logger.error(f'save_json_file 执行失败: {e}')
 
     def toggle_screencast_fullscreen(self):
         if self._window:
-            self._window.evaluate_js('window.toggleScreencastFullscreen()')
+            try:
+                self._window.evaluate_js('window.toggleScreencastFullscreen && window.toggleScreencastFullscreen()')
+            except Exception as e:
+                self.logger.error(f'toggle_screencast_fullscreen 执行失败: {e}')
 
 
     # ------------------------------------------------------------------ #

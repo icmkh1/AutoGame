@@ -51,11 +51,11 @@ async function startKeyNameListening() {
   isListeningKeyName.value = true
   keyNameInterval = setInterval(async () => {
     try {
-      const keyNameResult = await (window as any).pywebview.api.get_key_name()
+      const keyNameResult = await window.pywebview.api.get_key_name()
       if (keyNameResult) {
         if (keyNameResult === 'MLeft') {
           keyName.value = keyNameResult
-        }else if (keyNameResult !== keyName.value) {
+        } else if (keyNameResult !== keyName.value) {
           keyName.value = keyNameResult
           stopKeyNameListening()
         }
@@ -91,6 +91,11 @@ let editorView: EditorView | null = null
 const languageCompartment = new Compartment()
 const themeCompartment = new Compartment()
 const editableCompartment = new Compartment()
+
+// 保存原始函数的引用，用于组件卸载时恢复
+let originalDisableJsonEditor: any = null
+let originalEnableJsonEditor: any = null
+let originalSaveFile: any = null
 
 const darkHighlightStyle = HighlightStyle.define([
   { tag: tags.propertyName, color: '#80CBC4' },
@@ -144,6 +149,17 @@ onMounted(() => {
       parent: editorRef.value,
     })
   }
+
+  // 保存原始函数引用
+  originalDisableJsonEditor = window.disableJsonEditor
+  originalEnableJsonEditor = window.enableJsonEditor
+  originalSaveFile = window.saveFile
+
+  // 覆盖全局函数
+  window.disableJsonEditor = disableEditor
+  window.enableJsonEditor = enableEditor
+  window.saveFile = saveFile
+
   window.addEventListener('keydown', handleKeyPressStop)
   window.addEventListener('mousedown', handleMouseClickStop)
   window.addEventListener('blur', handleWindowBlur)
@@ -158,6 +174,17 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyPressStop)
   window.removeEventListener('mousedown', handleMouseClickStop)
   window.removeEventListener('blur', handleWindowBlur)
+
+  // 恢复原始函数
+  if (originalDisableJsonEditor !== null) {
+    window.disableJsonEditor = originalDisableJsonEditor
+  }
+  if (originalEnableJsonEditor !== null) {
+    window.enableJsonEditor = originalEnableJsonEditor
+  }
+  if (originalSaveFile !== null) {
+    window.saveFile = originalSaveFile
+  }
 })
 
 watch(() => props.content, (newContent) => {
@@ -190,7 +217,7 @@ async function saveFile() {
 
   try {
     const currentContent = editorView.state.doc.toString()
-    const result = await (window as any).pywebview.api.save_macrofile(props.fileName, currentContent)
+    const result = await window.pywebview.api.save_macrofile(props.fileName, currentContent)
 
     if (result === false) {
       saveButtonState.value = 'error'
@@ -278,7 +305,7 @@ async function startMousePositionListening() {
   isListeningMousePosition.value = true
   mousePositionInterval = setInterval(async () => {
     try {
-      const result = await (window as any).pywebview.api.get_mouse_position()
+      const result = await window.pywebview.api.get_mouse_position()
       if (result) {
         mousePosition.value = result
       }
@@ -293,7 +320,7 @@ async function startPixelColorListening() {
   isListeningPixelColor.value = true
   pixelColorInterval = setInterval(async () => {
     try {
-      const result = await (window as any).pywebview.api.get_pixel_color()
+      const result = await window.pywebview.api.get_pixel_color()
       if (result) {
         pixelColor.value = result
       }
@@ -342,10 +369,6 @@ function enableEditor() {
     })
   }
 }
-
-;(window as any).disableJsonEditor = disableEditor
-;(window as any).enableJsonEditor = enableEditor
-;(window as any).saveFile = saveFile
 </script>
 
 <style src="./Jsoneditor.css" scoped></style>
