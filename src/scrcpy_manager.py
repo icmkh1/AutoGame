@@ -7,6 +7,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from autoxkit.android.adb import AdbServerLauncher
 from autoxkit.android import AudioVideoEvent, ScrcpyClient, ScrcpyOptions, StreamKind
 
 
@@ -139,6 +140,8 @@ class ScrcpyManager:
         self._pump_task: asyncio.Task[None] | None = None
         self._events: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=480)
         self._last_session: tuple[int, int] | None = None
+        self._launcher: AdbServerLauncher | None = None
+        self._address: str | None = None
 
     # ------------------------------------------------------------------ #
     # Public API (called from pywebview thread)
@@ -180,8 +183,8 @@ class ScrcpyManager:
     def set_clipboard(self, text: str) -> dict[str, Any]:
         return self._submit(self._set_clipboard(text))
 
-    def switch_to_wireless(self, serial: str | None = None) -> dict[str, Any]:
-        return self._submit(self._switch_to_wireless(serial))
+    def switch_to_wireless(self) -> dict[str, Any]:
+        return self._submit(self._switch_to_wireless())
 
     def discover_usb_serial(self) -> str | None:
         return self._submit(self._discover_usb_serial())
@@ -299,41 +302,39 @@ class ScrcpyManager:
         except (BrokenPipeError, ConnectionError, OSError) as exc:
             return {"ok": False, "error": str(exc)}
 
-    async def _switch_to_wireless(self, serial: str | None) -> dict[str, Any]:
-        resolved = serial
-        if not resolved:
-            from autoxkit.android.adb import AdbServerLauncher
-            launcher = AdbServerLauncher(
-                adb_path=self.PLUGIN_DIR / "adb.exe",
-                server_path=self.PLUGIN_DIR / "scrcpy-server",
-            )
-            resolved = await launcher.discover_usb_serial()
-            if not resolved:
-                return {"ok": False, "error": "could not find a single USB device; please enter the serial"}
-        from autoxkit.android.adb import AdbServerLauncher
-        launcher = AdbServerLauncher(
-            adb_path=self.PLUGIN_DIR / "adb.exe",
-            server_path=self.PLUGIN_DIR / "scrcpy-server",
-            serial=resolved,
-        )
+    async def _switch_to_wireless(self) -> dict[str, Any]:
+
         try:
-            device_ip = await launcher.get_device_ip()
-            await launcher.enable_tcpip(5555)
-            await asyncio.sleep(1)
-            address = f"{device_ip}:5555"
-            await launcher.connect_tcpip(address)
+            if self._address is None:
+                self._launcher = AdbServerLauncher(
+                    adb_path=self.PLUGIN_DIR / "adb.exe",
+                    server_path=self.PLUGIN_DIR / "scrcpy-server",
+                    serial=None,
+                )
+                device_ip = await self._launcher.get_device_ip()
+                await self._launcher.enable_tcpip(5555)
+                await asyncio.sleep(1)
+                self._address = f"{device_ip}:5555"
+
+            await self._launcher.connect_tcpip(self._address)
             await asyncio.sleep(2)
-            return {"ok": True, "serial": address}
-        except Exception as exc:
+            return {"ok": True, "serial": self._address}
+        except (BrokenPipeError, ConnectionError, OSError) as exc:
             return {"ok": False, "error": str(exc)}
 
     async def _discover_usb_serial(self) -> str | None:
-        from autoxkit.android.adb import AdbServerLauncher
-        launcher = AdbServerLauncher(
+        self._launcher = AdbServerLauncher(
             adb_path=self.PLUGIN_DIR / "adb.exe",
             server_path=self.PLUGIN_DIR / "scrcpy-server",
+            serial=None,
         )
-        return await launcher.discover_usb_serial()
+
+        device_ip = await self._launcher.get_device_ip()
+        await self._launcher.enable_tcpip(5555)
+        await asyncio.sleep(1)
+        self._address = f"{device_ip}:5555"
+
+        return await self._launcher.discover_usb_serial()
 
     async def _volume_up(self) -> dict[str, Any]:
         if self._client is None or self._client.control is None:

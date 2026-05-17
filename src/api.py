@@ -227,8 +227,8 @@ class Api:
     def scrcpy_set_clipboard(self, text):
         return self.scrcpy.set_clipboard(text)
 
-    def scrcpy_switch_to_wireless(self, serial=None):
-        return self.scrcpy.switch_to_wireless(serial)
+    def scrcpy_switch_to_wireless(self):
+        return self.scrcpy.switch_to_wireless()
 
     def scrcpy_discover_usb_serial(self):
         return self.scrcpy.discover_usb_serial()
