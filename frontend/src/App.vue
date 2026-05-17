@@ -17,11 +17,23 @@ type KeymouseSubView = {
 
 const currentView = ref('hidden')
 const isMaximized = ref(false)
+const isScreencastFullscreen = ref(false)
 const currentTheme = ref<Theme>('dark')
 const hasNewLogError = ref(false)
 const screencastMode = ref<'usb' | 'wireless' | null>(null)
 const appInfo = ref({ name: 'AutoGame', version: '0.0.0', homepage: '', instructions: '' })
 let logCheckInterval: number | null = null
+
+// 对 ScreenCastView 的 ref
+const screenCastViewRef = ref()
+
+// 投屏全屏切换
+function toggleScreencastFullscreen() {
+  if (screencastMode.value && screenCastViewRef.value) {
+    isScreencastFullscreen.value = !isScreencastFullscreen.value
+    screenCastViewRef.value.toggleFullscreen()
+  }
+}
 
 // 保存 keymouse 视图的子状态
 const keymouseSubView = ref<KeymouseSubView>({
@@ -111,6 +123,7 @@ function handleScreencastNavigate(mode: 'usb' | 'wireless') {
 
 function handleScreencastBack() {
   screencastMode.value = null
+  isScreencastFullscreen.value = false
 }
 
 function handleNavigate(id: string) {
@@ -156,7 +169,14 @@ async function pollForConfig() {
 onMounted(() => {
   pollForConfig()
   // 每秒检查一次是否有新的错误
-  logCheckInterval = window.setInterval(checkNewLogError, 1000)
+  if (typeof window.setInterval === 'function') {
+    logCheckInterval = window.setInterval(checkNewLogError, 1000)
+  }
+
+  // 暴露投屏全屏切换函数给 Python 调用
+  if (typeof window !== 'undefined') {
+    (window as any).toggleScreencastFullscreen = toggleScreencastFullscreen
+  }
 })
 
 onUnmounted(() => {
@@ -175,7 +195,7 @@ provide('appInfo', appInfo)
 
 <template>
   <div class="app-container" :data-theme="currentTheme">
-    <div class="title-bar pywebview-drag-region">
+    <div v-if="!isScreencastFullscreen" class="title-bar pywebview-drag-region">
       <span class="app-name">{{ appInfo.name }}</span>
       <div class="title"></div>
       <div class="window-controls">
@@ -200,7 +220,7 @@ provide('appInfo', appInfo)
       </div>
     </div>
     <div class="main-container">
-      <Sidebar class="sidebar" :has-new-log-error="hasNewLogError" @navigate="handleNavigate" />
+      <Sidebar v-if="!isScreencastFullscreen" class="sidebar" :has-new-log-error="hasNewLogError" @navigate="handleNavigate" />
       <main class="content">
         <div class="view-container">
           <div v-if="currentView === 'hidden'" class="hidden-view"></div>
@@ -214,9 +234,11 @@ provide('appInfo', appInfo)
             @updateContent="keymouseSubView.content = $event"
           />
           <ScreenCastView
+            ref="screenCastViewRef"
             v-else-if="screencastMode"
             :connectionMode="screencastMode"
             @back="handleScreencastBack"
+            @fullscreen-change="isScreencastFullscreen = $event"
           />
           <Screencast
             v-else-if="currentView === 'screencast'"

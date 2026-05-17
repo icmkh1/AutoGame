@@ -7,7 +7,7 @@ block_cipher = None
 # 收集数据文件
 datas = []
 
-# 添加 plugins 目录
+# 添加 data 目录
 data_dir = Path('data')
 if data_dir.exists():
     datas.append((str(data_dir), 'data'))

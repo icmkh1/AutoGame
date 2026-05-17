@@ -1,11 +1,8 @@
-﻿<template>
-  <div class="screencast-viewer" :data-theme="currentTheme">
-    <div class="viewer-sidebar">
-      <button class="back-btn" @click="goBack">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M19 12H5M12 19l-7-7 7-7"/>
-        </svg>
-        <span>返回</span>
+<template>
+  <div class="screencast-viewer" :class="{ 'fullscreen-mode': isFullscreen }" :data-theme="currentTheme" @keydown="handleKeydown">
+    <div v-if="!isFullscreen" class="viewer-sidebar">
+      <button class="stop-btn" @click="handleStop">
+        <span>停止</span>
       </button>
     </div>
     <div ref="viewport" class="viewport">
@@ -21,6 +18,152 @@
         <div v-if="!session.width" class="placeholder">
           <div class="spinner"></div>
           <p>{{ statusText }}</p>
+        </div>
+      </div>
+    </div>
+    <div v-if="!isFullscreen" class="viewer-sidebar viewer-sidebar-right">
+      <div class="sidebar-top">
+        <div class="btn-wrapper">
+          <button
+            class="action-btn"
+            @click="expandScreen"
+            @mouseenter="showTooltip('device-expand-screen', '键位映射')"
+            @mouseleave="hideTooltip('device-expand-screen')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="4" width="20" height="16" rx="2" ry="2"/>
+              <line x1="7" y1="10" x2="10" y2="10"/>
+              <line x1="14" y1="10" x2="17" y2="10"/>
+              <line x1="4" y1="15" x2="7" y2="15"/>
+              <line x1="10" y1="15" x2="14" y2="15"/>
+              <line x1="17" y1="15" x2="20" y2="15"/>
+            </svg>
+          </button>
+          <Transition name="tooltip">
+            <div v-if="hoveredButtons['device-expand-screen']" class="tooltip tooltip-left">
+              {{ hoveredButtons['device-expand-screen'] }}
+            </div>
+          </Transition>
+        </div>
+        <div class="btn-wrapper">
+          <button
+            class="action-btn"
+            @click="volumeUp"
+            @mouseenter="showTooltip('device-vol-up', '音量+')"
+            @mouseleave="hideTooltip('device-vol-up')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <line x1="14" y1="12" x2="24" y2="12"/>
+              <line x1="19" y1="7" x2="19" y2="17"/>
+            </svg>
+          </button>
+          <Transition name="tooltip">
+            <div v-if="hoveredButtons['device-vol-up']" class="tooltip tooltip-left">
+              {{ hoveredButtons['device-vol-up'] }}
+            </div>
+          </Transition>
+        </div>
+        <div class="btn-wrapper">
+          <button
+            class="action-btn"
+            @click="volumeDown"
+            @mouseenter="showTooltip('device-vol-down', '音量-')"
+            @mouseleave="hideTooltip('device-vol-down')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <line x1="14" y1="12" x2="24" y2="12"/>
+            </svg>
+          </button>
+          <Transition name="tooltip">
+            <div v-if="hoveredButtons['device-vol-down']" class="tooltip tooltip-left">
+              {{ hoveredButtons['device-vol-down'] }}
+            </div>
+          </Transition>
+        </div>
+        <div class="btn-wrapper">
+          <button
+            class="action-btn"
+            @click="toggleFullscreen"
+            @mouseenter="showTooltip('fullscreen', isFullscreen ? '退出全屏' : '全屏')"
+            @mouseleave="hideTooltip('fullscreen')"
+          >
+            <svg v-if="!isFullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 3 21 3 21 9"/>
+              <polyline points="9 21 3 21 3 15"/>
+              <line x1="21" y1="3" x2="14" y2="10"/>
+              <line x1="3" y1="21" x2="10" y2="14"/>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 9 3 9 3 3"/>
+              <polyline points="15 15 21 15 21 21"/>
+              <line x1="3" y1="9" x2="10" y2="2"/>
+              <line x1="21" y1="15" x2="14" y2="22"/>
+            </svg>
+          </button>
+          <Transition name="tooltip">
+            <div v-if="hoveredButtons['fullscreen']" class="tooltip tooltip-left">
+              {{ hoveredButtons['fullscreen'] }}
+            </div>
+          </Transition>
+        </div>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="btn-wrapper">
+          <button
+            class="action-btn"
+            @click="handleStop"
+            @mouseenter="showTooltip('back', '返回')"
+            @mouseleave="hideTooltip('back')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <Transition name="tooltip">
+            <div v-if="hoveredButtons['back']" class="tooltip tooltip-left">
+              {{ hoveredButtons['back'] }}
+            </div>
+          </Transition>
+        </div>
+        <div class="btn-wrapper">
+          <button
+            class="action-btn"
+            @click="switchApp"
+            @mouseenter="showTooltip('switch-app', '多应用')"
+            @mouseleave="hideTooltip('switch-app')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"/>
+              <rect x="14" y="3" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/>
+            </svg>
+          </button>
+          <Transition name="tooltip">
+            <div v-if="hoveredButtons['switch-app']" class="tooltip tooltip-left">
+              {{ hoveredButtons['switch-app'] }}
+            </div>
+          </Transition>
+        </div>
+        <div class="btn-wrapper">
+          <button
+            class="action-btn"
+            @click="goHome"
+            @mouseenter="showTooltip('home', '主页')"
+            @mouseleave="hideTooltip('home')"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </button>
+          <Transition name="tooltip">
+            <div v-if="hoveredButtons['home']" class="tooltip tooltip-left">
+              {{ hoveredButtons['home'] }}
+            </div>
+          </Transition>
         </div>
       </div>
     </div>
@@ -41,6 +184,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "back"): void
+  (e: "fullscreen-change", isFull: boolean): void
 }>()
 
 // ------------------------------------------------------------------ #
@@ -58,13 +202,16 @@ const status = ref<{ running: boolean; deviceName?: string | null; error?: strin
   running: false,
 })
 
+const hoveredButtons = ref<Record<string, string>>({})
+const isFullscreen = ref(false)
+
 // ------------------------------------------------------------------ #
 // Computed
 // ------------------------------------------------------------------ #
 
 const screenStyle = computed(() => {
   if (!session.value.width || !session.value.height) return {}
-  const padding = 28
+  const padding = 0
   const aw = Math.max(1, viewportSize.value.width - padding)
   const ah = Math.max(1, viewportSize.value.height - padding)
   const scale = Math.min(aw / session.value.width, ah / session.value.height)
@@ -73,6 +220,63 @@ const screenStyle = computed(() => {
     height: `${Math.floor(session.value.height * scale)}px`,
   }
 })
+
+// ------------------------------------------------------------------ #
+// Tooltip helpers
+// ------------------------------------------------------------------ #
+
+function showTooltip(key: string, text: string) {
+  hoveredButtons.value[key] = text
+}
+
+function hideTooltip(key: string) {
+  delete hoveredButtons.value[key]
+}
+
+// ------------------------------------------------------------------ #
+// Control helpers
+// ------------------------------------------------------------------ #
+
+function expandScreen() {
+  callApi("scrcpy_expand_screen").catch(() => {})
+}
+
+function volumeUp() {
+  callApi("scrcpy_volume_up").catch(() => {})
+}
+
+function volumeDown() {
+  callApi("scrcpy_volume_down").catch(() => {})
+}
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value
+  emit('fullscreen-change', isFullscreen.value)
+
+  // 调用 pywebview 的窗口最大化/还原功能
+  if ((window as any).pywebview && (window as any).pywebview.api) {
+    (window as any).pywebview.api.toggle_maximize()
+  }
+}
+
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isFullscreen.value) {
+    toggleFullscreen()
+  }
+}
+
+function switchApp() {
+  callApi("scrcpy_switch_app").catch(() => {})
+}
+
+function goHome() {
+  callApi("scrcpy_go_home").catch(() => {})
+}
+
+async function handleStop() {
+  await stopConnection()
+  emit("back")
+}
 
 // ------------------------------------------------------------------ #
 // Video decoder state
@@ -349,15 +553,6 @@ async function onPointer(action: number, event: PointerEvent) {
 }
 
 // ------------------------------------------------------------------ #
-// Navigation
-// ------------------------------------------------------------------ #
-
-async function goBack() {
-  await stopConnection()
-  emit("back")
-}
-
-// ------------------------------------------------------------------ #
 // Lifecycle
 // ------------------------------------------------------------------ #
 
@@ -377,12 +572,21 @@ onMounted(async () => {
   })
   if (viewport.value) resizeObserver.observe(viewport.value)
 
+  // 添加键盘事件监听
+  window.addEventListener('keydown', handleKeydown)
+
   await startConnection()
 })
 
 onBeforeUnmount(() => {
   if (fpsTimer) window.clearInterval(fpsTimer)
   resizeObserver?.disconnect()
+  window.removeEventListener('keydown', handleKeydown)
   stopConnection()
+})
+
+// 暴露函数给父组件调用
+defineExpose({
+  toggleFullscreen
 })
 </script>

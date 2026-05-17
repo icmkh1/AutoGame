@@ -137,6 +137,10 @@ class Api:
         if self._window:
             self._window.evaluate_js('window.saveFile()')
 
+    def toggle_screencast_fullscreen(self):
+        if self._window:
+            self._window.evaluate_js('window.toggleScreencastFullscreen()')
+
 
     # ------------------------------------------------------------------ #
     # Scrcpy / screencast API
@@ -178,6 +182,7 @@ class Api:
             'create_new_file', 'rename_file', 'open_folder', 'delete_file',
             'get_memory_logs', 'get_memory_logs_count', 'get_memory_logs_since', 'clear_memory_logs', 'has_new_error', 'clear_new_error_flag',
             'disable_json_editor', 'enable_json_editor', 'save_json_file',
+            'toggle_screencast_fullscreen',
             'scrcpy_start', 'scrcpy_stop', 'scrcpy_status', 'scrcpy_poll_events',
             'scrcpy_send_touch', 'scrcpy_send_keycode', 'scrcpy_set_clipboard',
             'scrcpy_switch_to_wireless', 'scrcpy_discover_usb_serial',

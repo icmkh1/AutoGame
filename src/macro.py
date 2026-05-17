@@ -72,6 +72,7 @@ class Macro:
 
         self.hotkey_listener = HotkeyListener(self.hook_listener)
         self.hotkey_listener.add_hotkey('保存', ['LCtrl', 'S'], lambda: self.api.save_json_file())
+        self.hotkey_listener.add_hotkey('投屏全屏', ['F11'], lambda: self.api.toggle_screencast_fullscreen())
 
 #   --------------------------------------------------监听器控制-------------------------------------------------
 
