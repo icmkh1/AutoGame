@@ -937,6 +937,7 @@ async function deleteFile(name: string) {
       controls.value = []
       dpads.value = []
       swipes.value = []
+      lastSwipePath.value = []
       editingControlId.value = null
       editingDpadId.value = null
       editingDpadDir.value = null
