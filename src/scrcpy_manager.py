@@ -132,10 +132,6 @@ class ScrcpyManager:
     }
 
     def __init__(self) -> None:
-        super().__init__()
-        self._active_key_mapping = None
-        self._key_listener_running = False
-    def __init__(self) -> None:
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._run_loop, daemon=True, name="scrcpy-manager")
         self._thread.start()

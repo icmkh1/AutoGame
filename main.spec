@@ -20,7 +20,7 @@ if plugins_dir.exists():
 # 添加 frontend/dist 目录（前端构建产物）
 frontend_dist_dir = Path('frontend') / 'dist'
 if frontend_dist_dir.exists():
-    datas.append((str(frontend_dist_dir), 'frontend\\dist'))
+    datas.append((str(frontend_dist_dir), 'frontend/dist'))
 
 # 添加 pyproject.toml
 pyproject_file = Path('pyproject.toml')
@@ -47,6 +47,21 @@ a = Analysis(
         'numpy.core._multiarray_umath',
         'onnxruntime',
         'cv2',
+        'autoxkit',
+        'autoxkit.window',
+        'autoxkit.mousekey',
+        'autoxkit.match',
+        'autoxkit.constants',
+        'autoxkit.hook',
+        'autoxkit.android',
+        'autoxkit.android.adb',
+        'shapely',
+        'shapely.geometry',
+        'shapely.geometry.polygon',
+        'pyclipper',
+        'PIL.Image',
+        'PIL.ImageDraw',
+        'PIL.ImageFont',
     ],
     hookspath=[],
     hooksconfig={},
