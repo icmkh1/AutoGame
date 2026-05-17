@@ -309,15 +309,12 @@ class ScrcpyManager:
                 self._launcher = AdbServerLauncher(
                     adb_path=self.PLUGIN_DIR / "adb.exe",
                     server_path=self.PLUGIN_DIR / "scrcpy-server",
-                    serial=None,
                 )
                 device_ip = await self._launcher.get_device_ip()
                 await self._launcher.enable_tcpip(5555)
-                await asyncio.sleep(1)
                 self._address = f"{device_ip}:5555"
 
             await self._launcher.connect_tcpip(self._address)
-            await asyncio.sleep(2)
             return {"ok": True, "serial": self._address}
         except (BrokenPipeError, ConnectionError, OSError) as exc:
             return {"ok": False, "error": str(exc)}
@@ -326,13 +323,7 @@ class ScrcpyManager:
         self._launcher = AdbServerLauncher(
             adb_path=self.PLUGIN_DIR / "adb.exe",
             server_path=self.PLUGIN_DIR / "scrcpy-server",
-            serial=None,
         )
-
-        device_ip = await self._launcher.get_device_ip()
-        await self._launcher.enable_tcpip(5555)
-        await asyncio.sleep(1)
-        self._address = f"{device_ip}:5555"
 
         return await self._launcher.discover_usb_serial()
 
