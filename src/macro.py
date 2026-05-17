@@ -27,6 +27,10 @@ class Macro:
         self.key_name = None
         self.macro_file = None
         self.down_state_keys = []  # 记录已经还在按下状态的按键，弹起清理，用来限制线程重复创建
+        self.listening_for_key = False  # 是否正在监听按键输入
+        self.listening_key_target = None  # 当前监听的目标 (type, id)
+        self.last_key_pressed = None  # 最后按下的按键
+        self.key_mapping_executor = None  # 按键映射执行器，用于 scrcpy 触摸事件
         self.button_mapping = {
             'MLeft': 0,
             'MRight': 1,
@@ -71,8 +75,8 @@ class Macro:
         self.hook_listener.add_handler('mouseup', self._hook_all_up)
 
         self.hotkey_listener = HotkeyListener(self.hook_listener)
-        self.hotkey_listener.add_hotkey('保存', ['LCtrl', 'S'], lambda: self.api.save_json_file())
-        self.hotkey_listener.add_hotkey('投屏全屏', ['F11'], lambda: self.api.toggle_screencast_fullscreen())
+        self.hotkey_listener.add_hotkey('保存', ['LCtrl', 'S'], lambda: self._safe_save_json())
+        self.hotkey_listener.add_hotkey('投屏全屏', ['F11'], lambda: self._safe_toggle_fullscreen())
 
 #   --------------------------------------------------监听器控制-------------------------------------------------
 
@@ -82,6 +86,22 @@ class Macro:
         """
         self.logger.info('键鼠监听器启动')
         self.hook_listener.start()
+
+    def _safe_save_json(self):
+        """安全保存 JSON 文件，处理窗口已关闭的情况"""
+        try:
+            if self.api:
+                self.api.save_json_file()
+        except Exception as e:
+            self.logger.error(f'保存 JSON 文件失败: {e}')
+
+    def _safe_toggle_fullscreen(self):
+        """安全切换全屏，处理窗口已关闭的情况"""
+        try:
+            if self.api:
+                self.api.toggle_screencast_fullscreen()
+        except Exception as e:
+            self.logger.error(f'切换全屏失败: {e}')
 
     def stop(self):
         """
@@ -122,8 +142,18 @@ class Macro:
     def set_api(self, api):
         """
             设置 API 引用
+        Args:
+            api: API 对象
         """
         self.api = api
+
+    def set_key_mapping_executor(self, executor):
+        """
+            设置按键映射执行器
+        Args:
+            executor: KeyMappingExecutor 实例
+        """
+        self.key_mapping_executor = executor
 
     def set_macro_file(self, macro_file: dict):
         """
@@ -148,6 +178,28 @@ class Macro:
             str: 当前按键名称
         """
         return self.key_name
+
+    def start_listening_key(self):
+        """
+            开始监听按键输入
+        """
+        self.listening_for_key = True
+        self.last_key_pressed = None
+
+    def stop_listening_key(self):
+        """
+            停止监听按键输入
+        """
+        self.listening_for_key = False
+        self.last_key_pressed = None
+
+    def get_last_key(self):
+        """
+            获取最后按下的按键
+        Returns:
+            str: 最后按下的按键名称，如果没有则返回 None
+        """
+        return self.last_key_pressed
 
     def get_mouse_position(self):
         """
@@ -907,11 +959,18 @@ class Macro:
 
             # 禁用编辑器并保存文件
             if self.api:
-                self.api.disable_json_editor()
-                self.api.save_json_file()
+                try:
+                    self.api.disable_json_editor()
+                    self.api.save_json_file()
+                except Exception as e:
+                    self.logger.error(f'切换宏开关时调用API失败: {e}')
         else:
             self.restore_mouse_icon()               # 恢复鼠标图标
-            self.api.enable_json_editor()           # 启用编辑器
+            if self.api:
+                try:
+                    self.api.enable_json_editor()   # 启用编辑器
+                except Exception as e:
+                    self.logger.error(f'切换宏开关时调用API失败: {e}')
             self.macro_window = None                # 清除窗口对象
             self.match.clear_cache_images()         # 清除缓存图像
 
@@ -926,8 +985,11 @@ class Macro:
         elif isinstance(event, MouseEvent):
             self.key_name = event.button
 
-        if not self.path_manager.is_frozen():
-            self.logger.info(f'键鼠监听器 按键按下：{self.key_name}')
+        if self.listening_for_key:
+            self.last_key_pressed = self.key_name
+
+        # if not self.path_manager.is_frozen():
+        #     self.logger.info(f'键鼠监听器 按键按下：{self.key_name}')
 
         # 宏开关切换
         if self.key_name == self.macro_switch_key and self.macro_file:
@@ -939,6 +1001,10 @@ class Macro:
         if self.macro_switch and self.key_name not in self.down_state_keys:
                 self.down_state_keys.append(self.key_name)
                 self._macro_trigger()
+
+        # 按键映射执行器触发 (scrcpy 触摸事件)
+        if self.key_mapping_executor and self.key_mapping_executor.enabled:
+            self.key_mapping_executor.on_key_down(self.key_name)
 
         return False
 
@@ -953,8 +1019,8 @@ class Macro:
         elif isinstance(event, MouseEvent):
             self.key_name = event.button
 
-        if not self.path_manager.is_frozen():
-            self.logger.info(f'键鼠监听器 按键弹起：{self.key_name}')
+        # if not self.path_manager.is_frozen():
+        #     self.logger.info(f'键鼠监听器 按键弹起：{self.key_name}')
 
         # 宏功能触发
         if self.macro_switch and self.key_name in self.down_state_keys:
@@ -969,6 +1035,9 @@ class Macro:
                         )
                         Thread(target=function, args=(data,)).start()
 
+        # 按键映射执行器弹起事件 (scrcpy 触摸释放)
+        if self.key_mapping_executor and self.key_mapping_executor.enabled:
+            self.key_mapping_executor.on_key_up(self.key_name)
 
         # 宏开关关闭时清空所有按键记录
         if not self.macro_switch:

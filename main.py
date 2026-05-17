@@ -5,10 +5,9 @@ from threading import Thread
 from PIL import Image
 import pystray
 from src.api import Api
-
-from src.key_mapping_hook import KeyMappingHook
 from src.ocr import ocr
 from src.macro import Macro
+from src.key_mapping_executor import KeyMappingExecutor
 from src.file_manager import FileManager
 from src.path_manager import PathManager
 from src.logger import Logger
@@ -22,10 +21,12 @@ class AutoGameApp:
         self.macro = Macro(self.logger, ocr, self.path_manager)
         self.file_manager = FileManager(self.logger, self.path_manager, self.macro)
         self.file_manager.set_memory_handler(self.logger_manager.get_memory_handler())
-        self.key_mapping_hook = KeyMappingHook()
 
         self.api = Api(self.logger, self.macro, self.file_manager)
         self.macro.set_api(self.api)
+
+        self.key_mapping_executor = KeyMappingExecutor(self.api.scrcpy)
+        self.api.set_key_mapping_executor(self.key_mapping_executor)
 
         self.debug = True
         self.window = None
@@ -82,9 +83,6 @@ class AutoGameApp:
             js_api=self.api
         )
         self.api.set_window(self.window)
-
-        self.key_mapping_hook.set_window(self.window)
-        self.api.set_key_mapping_hook(self.key_mapping_hook)
         self.window.events.closed += self.on_window_closed
 
     def on_window_closed(self):
@@ -94,6 +92,10 @@ class AutoGameApp:
         if self.tray:
             self.tray.visible = False
             self.tray.stop()
+        if self.macro:
+            self.macro.restore_mouse_icon()
+            self.macro.stop()
+        self.logger.info('应用已关闭')
 
     def show_window(self):
         """

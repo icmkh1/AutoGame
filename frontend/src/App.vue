@@ -134,16 +134,36 @@ function handleNavigate(id: string) {
   }
 }
 
-async function minimize() {
-  await window.pywebview.api.minimize()
+function minimize() {
+  try {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.minimize) {
+      window.pywebview.api.minimize()
+    }
+  } catch (e) {
+    console.error('Failed to minimize window:', e)
+  }
 }
 
-async function toggleMaximize() {
-  isMaximized.value = await window.pywebview.api.toggle_maximize()
+function toggleMaximize() {
+  try {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.toggle_maximize) {
+      window.pywebview.api.toggle_maximize().then((result: boolean) => {
+        isMaximized.value = result
+      })
+    }
+  } catch (e) {
+    console.error('Failed to toggle maximize:', e)
+  }
 }
 
-async function close() {
-  await window.pywebview.api.close()
+function close() {
+  try {
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.close) {
+      window.pywebview.api.close()
+    }
+  } catch (e) {
+    console.error('Failed to close window:', e)
+  }
 }
 
 async function pollForConfig() {

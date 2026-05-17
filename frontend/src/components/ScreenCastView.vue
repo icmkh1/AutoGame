@@ -22,7 +22,6 @@
 
 <!-- Key Mapping Overlay -->
       <div v-if="showKeyMapping" class="key-mapping-overlay"
-           :class="{ 'cursor-auto-hide': autoHideMouse && !altPressed }"
            @mousedown.left="onOverlayMouseDown"
            @mousemove="onOverlayMouseMove"
            @mouseup.left="onOverlayMouseUp"
@@ -36,7 +35,8 @@
                class="key-control"
                :class="{ listening: editingControlId === ctrl.id }"
                :style="ctrlStyle(ctrl)"
-               @mousedown.left.stop="startDrag($event, ctrl)">
+               @mousedown.left.stop="startDrag($event, ctrl)"
+               @click.stop="editControl(ctrl)">
             <div class="control-circle">
               <span class="control-label">{{ ctrl.label || (editingControlId === ctrl.id ? "..." : "?") }}</span>
               <button class="control-close" @click.stop="removeControl(ctrl.id)">&times;</button>
@@ -66,7 +66,8 @@
                class="key-control"
                :class="{ listening: editingControlId === swp.id }"
                :style="ctrlStyle(swp)"
-               @mousedown.left.stop="startDrag($event, swp, 'swipe')">
+               @mousedown.left.stop="startDrag($event, swp, 'swipe')"
+               @click.stop="editControl(swp)">
             <div class="control-circle">
               <span class="control-label">{{ swp.label || "滑动" }}</span>
               <button class="control-close" @click.stop="removeControl(swp.id)">&times;</button>
@@ -74,43 +75,20 @@
           </div>
           <!-- Swipe recording preview -->
           <svg v-if="isRecordingSwipe && swipePoints.length > 1" class="swipe-preview">
-            <polyline :points="swipePoints.map(p => p.x + ',' + p.y).join(' ')"></polyline>
+            <polyline :points="swipePoints.map(p => (p.x * kmCanvasWidth) + ',' + (p.y * kmCanvasHeight)).join(' ')"></polyline>
+          </svg>
+
+          <!-- Last recorded swipe path (persistent) -->
+          <svg v-if="lastSwipePath.length > 1" class="swipe-preview saved-swipe">
+            <polyline :points="lastSwipePath.map(p => (p.x * kmCanvasWidth) + ',' + (p.y * kmCanvasHeight)).join(' ')"></polyline>
+          </svg>
+
+          <!-- Saved swipe controls paths -->
+          <svg v-for="swp in swipes" :key="'path-' + swp.id" v-show="swp.path && swp.path.length > 1" class="swipe-preview saved-swipe">
+            <polyline :points="swp.path.map((p: any) => (p.x * kmCanvasWidth) + ',' + (p.y * kmCanvasHeight)).join(' ')"></polyline>
           </svg>
         </div>
 </div>
-        <!-- Sidebar -->
-        <div class="key-mapping-sidebar">
-          <div class="km-file-header">
-            <span>键位文件</span>
-            <button @click="createNewKeyMapping" title="新建">+</button>
-          </div>
-          <div class="km-files">
-            <div v-for="f in keyMappingFiles" :key="f"
-                 class="km-file-item"
-                 :class="{ active: f === currentFile }"
-                 @click="switchFile(f)">
-              <template v-if="renamingFile === f">
-                <input v-model="renameInput" @blur="doRename" @keyup.enter="doRename" ref="renameInputRef" />
-              </template>
-              <template v-else>
-                <span class="km-file-name">{{ f }}</span>
-                <div class="km-file-actions">
-                  <button @click.stop="startRename(f)" title="重命名">&#9998;</button>
-                  <button @click.stop="deleteFile(f)" title="删除">&times;</button>
-                </div>
-              </template>
-            </div>
-          </div>
-          <div class="km-settings">
-            <label class="km-toggle">
-              <input type="checkbox" v-model="autoHideMouse" @change="onAutoHideChange" />
-              <span>自动隐藏鼠标 (长按LAlt显示)</span>
-            </label>
-          </div>
-          <div class="km-actions">
-            <button class="km-btn close" @click="closeKeyMapping">关闭</button>
-          </div>
-        </div>
         <!-- Context menu -->
         <div v-if="contextMenu.show" class="context-menu"
              :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }">
@@ -120,6 +98,32 @@
       </div>
 </div>
 
+    </div>
+    <div v-if="showKeyMapping && !isFullscreen" class="key-mapping-sidebar">
+      <div class="km-file-header">
+        <span>键位文件</span>
+        <button @click="createNewKeyMapping" title="新建">+</button>
+      </div>
+      <div class="km-files">
+        <div v-for="f in keyMappingFiles" :key="f"
+             class="km-file-item"
+             :class="{ active: f === currentFile }"
+             @click="switchFile(f)">
+          <template v-if="renamingFile === f">
+            <input v-model="renameInput" @blur="doRename" @keyup.enter="doRename" ref="renameInputRef" />
+          </template>
+          <template v-else>
+            <span class="km-file-name">{{ f }}</span>
+            <div class="km-file-actions">
+              <button @click.stop="startRename(f)" title="重命名">&#9998;</button>
+              <button @click.stop="deleteFile(f)" title="删除">&times;</button>
+            </div>
+          </template>
+        </div>
+      </div>
+      <div class="km-actions">
+        <button class="km-btn close" @click="closeKeyMapping">关闭</button>
+      </div>
     </div>
     <div v-if="!isFullscreen" class="viewer-sidebar viewer-sidebar-right">
       <div class="sidebar-top">
@@ -404,18 +408,6 @@ async function toggleShowFps() {
   }
 }
 
-function handleKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && isFullscreen.value) {
-    toggleScrcpyFullscreen()
-  }
-  // Key mapping execution during casting
-  if (isKeyMappingActive.value && !showKeyMapping.value && status.value.running) {
-    const key = event.key === " " ? "Space" : normalizeKeyName(event.key)
-    // Find the control mapped to this key and send touch at its position
-    execKeyDown(key)
-  }
-}
-
 function scrcpyBack() {
   callApi("scrcpy_back").catch(() => {})
 }
@@ -501,6 +493,7 @@ async function startConnection() {
     if (status.value.running) {
       statusText.value = `Connected to ${status.value.deviceName || "device"}`
       startPolling()
+      await loadKeyMappingOnConnect()
     } else {
       statusText.value = status.value.error || "Connection failed"
     }
@@ -725,8 +718,6 @@ const currentFile = ref("")
 const controls = ref<any[]>([])
 const dpads = ref<any[]>([])
 const swipes = ref<any[]>([])
-const autoHideMouse = ref(false)
-const altPressed = ref(false)
 const contextMenu = ref({ show: false, x: 0, y: 0 })
 const editingControlId = ref<string | null>(null)
 const editingDpadId = ref<string | null>(null)
@@ -735,6 +726,17 @@ const isRecordingSwipe = ref(false)
 const pendingSwipe = ref(false)
 const swipePoints = ref<{x:number,y:number,delayMs:number}[]>([])
 const swipeStartTime = ref(0)
+const lastSwipePath = ref<{x:number,y:number,delayMs:number}[]>([])
+const kmCanvasWidth = ref(0)
+const kmCanvasHeight = ref(0)
+
+function updateKmCanvasSize() {
+  if (!kmCanvasRef.value) return
+  const rect = kmCanvasRef.value.getBoundingClientRect()
+  kmCanvasWidth.value = rect.width
+  kmCanvasHeight.value = rect.height
+}
+
 function toNormalizedCoords(clientX: number, clientY: number) {
   if (!canvas.value) return { x: 0, y: 0 }
   const rect = canvas.value.getBoundingClientRect()
@@ -756,46 +758,18 @@ let resizeTarget: any = null
 let resizeStartSize = 0
 let resizeStartMouse = { x: 0, y: 0 }
 
-// Available key names (from constants + button_mapping)
-const KNOWN_KEYS = [
-  "0","1","2","3","4","5","6","7","8","9",
-  "A","B","C","D","E","F","G","H","I","J","K","L","M",
-  "N","O","P","Q","R","S","T","U","V","W","X","Y","Z",
-  "F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","F11","F12",
-  "Esc","Tab","CapsLock","LShift","RShift","LCtrl","RCtrl","LAlt","RAlt",
-  "LWin","RWin","Back","Enter","Menu","Space",
-  "Left","Up","Right","Down","Insert","Delete","Home","End","PgUp","PgDown",
-  "Prtsc","ScrollLock","Pause",
-  "Numpad0","Numpad1","Numpad2","Numpad3","Numpad4","Numpad5","Numpad6","Numpad7","Numpad8","Numpad9",
-  "Add","Subtract","Multiply","Divide","Numlock","Decimal",
-  "MLeft","MRight","Middle","MSide1","MSide2",
-]
-
-// Key name translation for display
-const KEY_LABELS: Record<string, string> = {
-  "MLeft": "左键", "MRight": "右键", "Middle": "中键",
-  "MSide1": "侧键1", "MSide2": "侧键2",
-  "Space": "空格", "Enter": "回车", "Back": "退格",
-  "LShift": "左Shift", "RShift": "右Shift",
-  "LCtrl": "左Ctrl", "RCtrl": "右Ctrl",
-  "LAlt": "左Alt", "RAlt": "右Alt",
-  "LWin": "左Win", "RWin": "右Win",
-}
-
-
-
 function ctrlStyle(item: any, isDpad = false) {
   if (!canvas.value) return {}
   const rect = canvas.value.getBoundingClientRect()
   const pw = rect.width, ph = rect.height
   if (pw <= 0 || ph <= 0) return {}
   if (isDpad) {
-    const s = (item.size || 0.06) * pw
-    return { left: (item.x*pw - s/2)+"px", top: (item.y*ph - s/2)+"px", width: s+"px", height: s+"px" }
+    const s = (item.size || 0.06) * pw * 2.5
+    return { left: (item.x*pw)+"px", top: (item.y*ph)+"px", width: s+"px", height: s+"px" }
   }
   const sw = session.value.width || 1920
-  const r = (item.radius || 25) * (pw/sw)
-  return { left: (item.x*pw - r)+"px", top: (item.y*ph - r)+"px", width: (r*2)+"px", height: (r*2)+"px" }
+  const r = (item.radius || 25) * (pw/sw) * 2.5
+  return { left: (item.x*pw)+"px", top: (item.y*ph)+"px", width: (r*2)+"px", height: (r*2)+"px" }
 }
 
 function getDpadKeyStyle(dpad: any, dir: string) {
@@ -803,65 +777,98 @@ function getDpadKeyStyle(dpad: any, dir: string) {
   const rect = canvas.value.getBoundingClientRect()
   const pw = rect.width
   if (pw <= 0) return {}
-  const s = (dpad.size || 0.06) * pw, r = s/2, o = r*0.55
+  const s = (dpad.size || 0.06) * pw * 2.5, r = s/2, o = r*0.55
+  const keySize = r * 0.5
   const angles: Record<string, number> = {up:-90,down:90,left:180,right:0}
   const a = (angles[dir] ?? 0) * Math.PI/180
-  return { left: (r+o*Math.cos(a)-16)+"px", top: (r+o*Math.sin(a)-12)+"px", width:"32px", height:"24px", lineHeight:"24px", textAlign:"center" as const, fontSize:"14px", position:"absolute" as const, cursor:"pointer", background:"rgba(255,255,255,0.2)", borderRadius:"4px", color:"#fff", userSelect:"none" as const }
+  return { left: (r+o*Math.cos(a)-keySize/2)+"px", top: (r+o*Math.sin(a)-keySize/2)+"px", width: keySize+"px", height: keySize+"px", lineHeight: keySize+"px", textAlign:"center" as const, fontSize: (keySize*0.5)+"px", position:"absolute" as const, cursor:"pointer", background:"rgba(255,255,255,0.2)", borderRadius: (keySize*0.2)+"px", color:"#fff", userSelect:"none" as const }
 }
 function controlId(prefix: string): string {
   return prefix + "_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6)
-}
-
-function normalizeKeyName(raw: string): string {
-  // Map raw keyboard event key names to our known key names
-  const map: Record<string, string> = {
-    "Control": "LCtrl", "Shift": "LShift", "Alt": "LAlt", "Meta": "LWin",
-    " ": "Space", "ArrowLeft": "Left", "ArrowRight": "Right", "ArrowUp": "Up", "ArrowDown": "Down",
-  }
-  return map[raw] || raw.toUpperCase()
-}
-
-function formatKeyName(key: string): string {
-  return KEY_LABELS[key] || key
 }
 
 // ---- Overlay toggle ----
 function toggleKeyMapping() {
   showKeyMapping.value = !showKeyMapping.value
   if (showKeyMapping.value) {
-    loadKeyMappingFiles()
-    setupKeyCapture()
+    nextTick(() => {
+      updateKmCanvasSize()
+    })
   } else {
     closeKeyMapping()
   }
 }
 
 // ---- File management ----
-async function loadKeyMappingFiles() {
+async function loadKeyMappingOnConnect() {
   try {
+    const config = await callApi("get_config_file")
+    const savedFileName = config.keyMappingFile
+
     keyMappingFiles.value = await callApi("get_key_mapping_files")
-    if (keyMappingFiles.value.length > 0 && !currentFile.value) {
+
+    if (savedFileName && keyMappingFiles.value.includes(savedFileName)) {
+      await switchFile(savedFileName)
+    } else if (keyMappingFiles.value.length > 0) {
       await switchFile(keyMappingFiles.value[0])
+      await saveSelectedKeyMappingFile(keyMappingFiles.value[0])
+    } else {
+      const newFileName = await callApi("create_key_mapping_file")
+      if (newFileName) {
+        keyMappingFiles.value.push(newFileName)
+        await switchFile(newFileName)
+        await saveSelectedKeyMappingFile(newFileName)
+      }
     }
   } catch (e) {
-    console.error("Failed to load key mapping files:", e)
+    console.error("Failed to load key mapping on connect:", e)
   }
 }
 
-async function switchFile(name: string) {
+async function saveSelectedKeyMappingFile(fileName: string) {
+  try {
+    const config = await callApi("get_config_file")
+    config.keyMappingFile = fileName
+    await callApi("save_config_file", config)
+  } catch (e) {
+    console.error("Failed to save key mapping file selection:", e)
+  }
+}
+
+async function switchFile(name: string, skipSave = false) {
   if (renamingFile.value) return
-  // Save current first
-  await saveCurrentMapping()
+  if (!skipSave) {
+    await saveCurrentMapping()
+  }
   currentFile.value = name
+
+  editingControlId.value = null
+  editingDpadId.value = null
+  editingDpadDir.value = null
+
   try {
     const data = await callApi("load_key_mapping_file", name)
     if (data) {
       controls.value = (data.controls || []).map((c: any) => ({ ...c }))
       dpads.value = (data.dpad || []).map((d: any) => ({ ...d }))
       swipes.value = (data.swipes || []).map((s: any) => ({ ...s }))
-      autoHideMouse.value = data.autoHideMouse || false
+    } else {
+      controls.value = []
+      dpads.value = []
+      swipes.value = []
+    }
+    await callApi("apply_key_mapping", name)
+    isKeyMappingActive.value = true
+    await saveSelectedKeyMappingFile(name)
+    if (showKeyMapping.value) {
+      nextTick(() => {
+        updateKmCanvasSize()
+      })
     }
   } catch (e) {
+    controls.value = []
+    dpads.value = []
+    swipes.value = []
     console.error("Failed to load key mapping:", e)
   }
 }
@@ -871,7 +878,6 @@ async function saveCurrentMapping() {
   const data = {
     version: 1,
     name: currentFile.value,
-    autoHideMouse: autoHideMouse.value,
     controls: controls.value.map(c => ({ id: c.id, type: "single", key: c.key, label: c.label, x: c.x, y: c.y, radius: c.radius })),
     dpad: dpads.value.map(d => ({ id: d.id, type: "dpad", x: d.x, y: d.y, size: d.size, keys: d.keys })),
     swipes: swipes.value.map(s => ({ id: s.id, type: "swipe", label: s.label, key: s.key || "", x: s.x, y: s.y, radius: s.radius, path: s.path })),
@@ -928,7 +934,13 @@ async function deleteFile(name: string) {
     keyMappingFiles.value = keyMappingFiles.value.filter(f => f !== name)
     if (currentFile.value === name) {
       currentFile.value = keyMappingFiles.value[0] || ""
-      if (currentFile.value) await switchFile(currentFile.value)
+      controls.value = []
+      dpads.value = []
+      swipes.value = []
+      editingControlId.value = null
+      editingDpadId.value = null
+      editingDpadDir.value = null
+      if (currentFile.value) await switchFile(currentFile.value, true)
     }
   } catch (e) {
     console.error("Failed to delete:", e)
@@ -960,6 +972,7 @@ function onCanvasMouseDown(e: MouseEvent) {
   }
   controls.value.push(ctrl)
   editingControlId.value = ctrl.id
+  setupKeyCapture()
 }
 
 function onOverlayRightClick(e: MouseEvent) {
@@ -989,6 +1002,7 @@ function createDirectionKey() {
 function startSwipeRecording() {
   contextMenu.value.show = false
   pendingSwipe.value = true
+  updateKmCanvasSize()
 }
 
 function onOverlayMouseDown() {
@@ -1023,22 +1037,23 @@ function onOverlayMouseUp(e: MouseEvent) {
     const pos = toNormalizedCoords(e.clientX, e.clientY)
     const ex = pos.x
     const ey = pos.y
-    // Add last point scaled to session cords
     const lastDelay = Date.now() - swipeStartTime.value
     const lastPt = swipePoints.value[swipePoints.value.length - 1]
     if (!lastPt || lastPt.x !== ex || lastPt.y !== ey) {
       swipePoints.value.push({ x: ex, y: ey, delayMs: lastDelay })
     }
+    lastSwipePath.value = swipePoints.value.map(p => ({ ...p }))
     const swp = {
       id: controlId("swp"),
       label: "",
       key: "",
       x: ex, y: ey,
       radius: 25,
-      path: swipePoints.value.map(p => ({ ...p })),
+      path: lastSwipePath.value,
     }
     swipes.value.push(swp)
     editingControlId.value = swp.id
+    setupKeyCapture()
     swipePoints.value = []
     swipeStartTime.value = 0
   }
@@ -1086,16 +1101,31 @@ function onResizeMouseUp() {
   autoSave()
 }
 
+function editControl(ctrl: any) {
+  if (editingControlId.value) return
+  editingControlId.value = ctrl.id
+  setupKeyCapture()
+}
+
 function editDpadKey(dpad: any, dir: string) {
   if (editingControlId.value) return
   editingDpadId.value = dpad.id
   editingDpadDir.value = dir
+  setupKeyCapture()
 }
 
 function removeControl(id: string) {
   controls.value = controls.value.filter(c => c.id !== id)
   dpads.value = dpads.value.filter(d => d.id !== id)
+  const removedSwipe = swipes.value.find(s => s.id === id)
   swipes.value = swipes.value.filter(s => s.id !== id)
+  if (removedSwipe && lastSwipePath.value.length > 0) {
+    const lastPathStr = JSON.stringify(lastSwipePath.value)
+    const removedPathStr = JSON.stringify(removedSwipe.path)
+    if (lastPathStr === removedPathStr) {
+      lastSwipePath.value = []
+    }
+  }
   autoSave()
 }
 
@@ -1111,115 +1141,65 @@ function autoSave() {
   }, 500)
 }
 
-// ---- Key capture ----
-let keyCaptureHandler: ((e: KeyboardEvent) => void) | null = null
+// ---- Key capture via backend polling ----
+let keyPollTimer: number | null = null
 
-function setupKeyCapture() {
-  if (keyCaptureHandler) return
-  // Capture keyboard keys
-  const mouseBtnMap: Record<number, string> = { 0: "MLeft", 1: "MRight", 2: "Middle", 3: "MSide1", 4: "MSide2" }
-  mouseCaptureHandler = (e: MouseEvent) => {
-    if (e.button > 4) return
-    if (!editingControlId.value && !editingDpadId.value) return
-    const btnName = mouseBtnMap[e.button]
-    // Check for single/swipe controls
-    if (editingControlId.value) {
-      const ctrl = [...controls.value, ...swipes.value].find(c => c.id === editingControlId.value)
-      if (ctrl) {
-        const dup = [...controls.value, ...swipes.value].find(c => c.id !== ctrl.id && c.key === btnName)
-        if (!dup) {
-          ctrl.key = btnName
-          ctrl.label = btnName
-        }
-        editingControlId.value = null
-        autoSave()
-      }
-    }
-    // Check for dpad keys
-    if (editingDpadId.value && editingDpadDir.value) {
-      const dpad = dpads.value.find(d => d.id === editingDpadId.value)
-      if (dpad) {
-        dpad.keys[editingDpadDir.value] = { key: btnName, label: btnName }
-      }
-      editingDpadId.value = null
-      editingDpadDir.value = null
-      autoSave()
-    }
+async function setupKeyCapture() {
+  await callApi("start_key_listener")
+  if (keyPollTimer) {
+    clearInterval(keyPollTimer)
   }
-  document.addEventListener("mousedown", mouseCaptureHandler, true)
-
-  keyCaptureHandler = (e: KeyboardEvent) => {
-    if (editingControlId.value) {
-      e.preventDefault()
-      e.stopPropagation()
-      const ctrl = controls.value.find(c => c.id === editingControlId.value)
-      if (ctrl) {
-        const raw = e.key === " " ? "Space" : normalizeKeyName(e.key)
-        if (KNOWN_KEYS.includes(raw)) {
-          // Check duplicate
-          const dup = [...controls.value, ...swipes.value].find(
-            c => c.id !== ctrl.id && c.key === raw
-          )
-          if (dup) {
-            return  // Silently reject duplicates
-          }
-          ctrl.key = raw
-          ctrl.label = formatKeyName(raw)
-        } else {
-          // Try to use raw key as label
-          ctrl.key = raw
-          ctrl.label = raw
+  keyPollTimer = window.setInterval(async () => {
+    try {
+      const result = await callApi("get_pressed_key")
+      const key = result.key
+      if (key) {
+        await processCapturedKey(key)
+        await callApi("stop_key_listener")
+        if (keyPollTimer) {
+          clearInterval(keyPollTimer)
+          keyPollTimer = null
         }
-        editingControlId.value = null
-        autoSave()
       }
+    } catch (e) {
+      console.error("Key polling error:", e)
     }
-    if (editingDpadId.value && editingDpadDir.value) {
-      e.preventDefault()
-      e.stopPropagation()
-      const dpad = dpads.value.find(d => d.id === editingDpadId.value)
-      if (dpad) {
-        const raw = e.key === " " ? "Space" : normalizeKeyName(e.key)
-        if (KNOWN_KEYS.includes(raw)) {
-          dpad.keys[editingDpadDir.value] = { key: raw, label: formatKeyName(raw) }
-        } else {
-          dpad.keys[editingDpadDir.value] = { key: raw, label: raw }
-        }
-        editingDpadId.value = null
-        editingDpadDir.value = null
-        autoSave()
-      }
-    }
-  }
-  document.addEventListener("keydown", keyCaptureHandler, true)
+  }, 50)
 }
 
-let mouseCaptureHandler: ((e: MouseEvent) => void) | null = null
+async function processCapturedKey(key: string) {
+  if (editingControlId.value) {
+    const ctrl = [...controls.value, ...swipes.value].find(c => c.id === editingControlId.value)
+    if (ctrl) {
+      const dup = [...controls.value, ...swipes.value].find(c => c.id !== ctrl.id && c.key === key)
+      if (!dup) {
+        ctrl.key = key
+        ctrl.label = key
+      }
+      editingControlId.value = null
+      autoSave()
+    }
+  } else if (editingDpadId.value && editingDpadDir.value) {
+    const dpad = dpads.value.find(d => d.id === editingDpadId.value)
+    if (dpad) {
+      dpad.keys[editingDpadDir.value] = { key: key, label: key }
+    }
+    editingDpadId.value = null
+    editingDpadDir.value = null
+    autoSave()
+  }
+}
 
 function teardownKeyCapture() {
-  if (keyCaptureHandler) {
-    document.removeEventListener("keydown", keyCaptureHandler, true)
-    keyCaptureHandler = null
+  if (keyPollTimer) {
+    clearInterval(keyPollTimer)
+    keyPollTimer = null
   }
-  if (mouseCaptureHandler) {
-    document.removeEventListener("mousedown", mouseCaptureHandler, true)
-    mouseCaptureHandler = null
-  }
+  callApi("stop_key_listener").catch(() => {})
 }
 
 // ---- Mouse button capture (for left click creating controls, we need separate handling) ----
 // This is handled via pointerdown detection on the overlay
-
-// ---- Auto-hide mouse ----
-function onAutoHideChange() {
-  autoSave()
-}
-
-// Listen for custom events from backend hook
-function setupAutoHideEvents() {
-  window.addEventListener("km-show-cursor", () => { altPressed.value = true })
-  window.addEventListener("km-hide-cursor", () => { altPressed.value = false })
-}
 
 // ---- Close overlay ----
 async function closeKeyMapping() {
@@ -1233,12 +1213,6 @@ async function closeKeyMapping() {
   swipePoints.value = []
   teardownKeyCapture()
   showKeyMapping.value = false
-  // Activate auto-hide mouse if enabled (only on close)
-  if (autoHideMouse.value) {
-    callApi("set_key_mapping_auto_hide", true).catch(() => {})
-  } else {
-    callApi("set_key_mapping_auto_hide", false).catch(() => {})
-  }
   // Keep key mapping active for execution
   isKeyMappingActive.value = true
 }
@@ -1264,8 +1238,10 @@ onMounted(async () => {
   window.addEventListener('keyup', handleKeyup)
   window.addEventListener('mousedown', handleMouseDown)
   window.addEventListener('mouseup', handleMouseUp)
+  window.addEventListener('resize', updateKmCanvasSize)
 
-  setupAutoHideEvents()
+  await nextTick()
+  updateKmCanvasSize()
 
   await startConnection()
 })
@@ -1277,95 +1253,28 @@ onBeforeUnmount(() => {
   window.removeEventListener('keyup', handleKeyup)
   window.removeEventListener('mousedown', handleMouseDown)
   window.removeEventListener('mouseup', handleMouseUp)
+  window.removeEventListener('resize', updateKmCanvasSize)
   teardownKeyCapture()
 
   stopConnection()
 })
 
-function findControlByKey(key: string) {
-  for (const ctrl of controls.value) {
-    if (ctrl.key === key) return { ...ctrl, kind: "single" }
-  }
-  for (const swp of swipes.value) {
-    if (swp.key === key) return { ...swp, kind: "swipe" }
-  }
-  for (const dpad of dpads.value) {
-    for (const dir of ["up", "down", "left", "right"]) {
-      if (dpad.keys[dir].key === key) return { ...dpad, kind: "dpad", dir: dir }
-    }
-  }
-  return null
+function handleMouseDown(_event: MouseEvent) {
+  // 不再在前端处理按键映射，完全由后端处理
 }
 
-function execKeyDown(key: string) {
-  const mapped = findControlByKey(key)
-  if (!mapped || !session.value.width || !session.value.height) return
-  const sw = session.value.width
-  const sh = session.value.height
-  if (mapped.kind === "single") {
-    const sx = Math.round(mapped.x * sw)
-    const sy = Math.round(mapped.y * sh)
-    callApi("scrcpy_send_touch", 0, sx, sy, sw, sh).catch(() => {})
-  } else if (mapped.kind === "dpad") {
-    const sx = Math.round(mapped.x * sw)
-    const sy = Math.round(mapped.y * sh)
-    const dirOffsets: Record<string, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
-    const [dx, dy] = dirOffsets[mapped.dir] || [0, 0]
-    const dist = mapped.size * sw * 0.4
-    const ex = Math.round(sx + dx * dist)
-    const ey = Math.round(sy + dy * dist)
-    callApi("scrcpy_send_touch", 0, sx, sy, sw, sh).catch(() => {})
-    callApi("scrcpy_send_touch", 2, ex, ey, sw, sh).catch(() => {})
-    callApi("scrcpy_send_touch", 1, ex, ey, sw, sh).catch(() => {})
-  } else if (mapped.kind === "swipe" && mapped.path && mapped.path.length > 1) {
-    const pathPx = mapped.path.map((p: any) => ({
-      x: Math.round(p.x * sw),
-      y: Math.round(p.y * sh),
-      delayMs: p.delayMs
-    }))
-    callApi("key_mapping_swipe", pathPx).catch(() => {})
-  }
-  // Also notify backend executor
-  callApi("exec_key_mapping_down", key).catch(() => {})
+function handleMouseUp(_event: MouseEvent) {
+  // 不再在前端处理按键映射，完全由后端处理
 }
 
-function execKeyUp(key: string) {
-  const mapped = findControlByKey(key)
-  if (!mapped || !session.value.width || !session.value.height) return
-  const sw = session.value.width
-  const sh = session.value.height
-  if (mapped.kind === "single") {
-    const sx = Math.round(mapped.x * sw)
-    const sy = Math.round(mapped.y * sh)
-    callApi("scrcpy_send_touch", 1, sx, sy, sw, sh).catch(() => {})
-  }
-  // Also notify backend executor
-  callApi("exec_key_mapping_up", key).catch(() => {})
-}
-
-
-
-function handleMouseDown(event: MouseEvent) {
-  if (isKeyMappingActive.value && !showKeyMapping.value && status.value.running) {
-    const btnMap: Record<number, string> = { 0: "MLeft", 1: "MRight", 2: "Middle", 3: "MSide1", 4: "MSide2" }
-    const key = btnMap[event.button]
-    if (key) execKeyDown(key)
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && isFullscreen.value) {
+    toggleScrcpyFullscreen()
   }
 }
 
-function handleMouseUp(event: MouseEvent) {
-  if (isKeyMappingActive.value && !showKeyMapping.value && status.value.running) {
-    const btnMap: Record<number, string> = { 0: "MLeft", 1: "MRight", 2: "Middle", 3: "MSide1", 4: "MSide2" }
-    const key = btnMap[event.button]
-    if (key) execKeyUp(key)
-  }
-}
-
-function handleKeyup(event: KeyboardEvent) {
-  if (isKeyMappingActive.value && !showKeyMapping.value && status.value.running) {
-    const key = event.key === " " ? "Space" : normalizeKeyName(event.key)
-    execKeyUp(key)
-  }
+function handleKeyup(_event: KeyboardEvent) {
+  // 不再在前端处理按键映射，完全由后端处理
 }
 
 // 暴露函数给父组件调用

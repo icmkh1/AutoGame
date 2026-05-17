@@ -61,7 +61,9 @@
 .window-controls {
   display: flex;
   gap: 4px;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: no-drag !important;
+  z-index: 1000;
+  position: relative;
 }
 
 .control-btn {
@@ -75,6 +77,10 @@
   cursor: pointer;
   border-radius: 6px;
   transition: background-color 0.15s ease, color 0.15s ease;
+  -webkit-app-region: no-drag !important;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1001;
 }
 
 .app-container[data-theme="dark"] .control-btn {

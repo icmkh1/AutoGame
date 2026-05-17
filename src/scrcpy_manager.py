@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import base64
@@ -508,7 +508,7 @@ class ScrcpyManager:
             return {"ok": False, "error": "no session size"}
         try:
             sw, sh = self._last_session
-            self._submit(self._send_swipe_async(path_data, sw, sh))
+            asyncio.run_coroutine_threadsafe(self._send_swipe_async(path_data, sw, sh), self._loop)
             return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -517,13 +517,19 @@ class ScrcpyManager:
         if not path_data:
             return
         first = path_data[0]
-        await self._client.control.send_touch(0, first["x"], first["y"], sw, sh)
+        px = max(0, min(sw, int(first["x"] * sw)))
+        py = max(0, min(sh, int(first["y"] * sh)))
+        await self._client.control.send_touch(0, px, py, sw, sh)
         for i in range(1, len(path_data)):
             pt = path_data[i]
             delay = pt.get("delayMs", 0) - path_data[i-1].get("delayMs", 0)
             if delay > 0:
                 await asyncio.sleep(delay / 1000.0)
-            await self._client.control.send_touch(2, pt["x"], pt["y"], sw, sh)
+            px = max(0, min(sw, int(pt["x"] * sw)))
+            py = max(0, min(sh, int(pt["y"] * sh)))
+            await self._client.control.send_touch(2, px, py, sw, sh)
         last = path_data[-1]
-        await self._client.control.send_touch(1, last["x"], last["y"], sw, sh)
+        px = max(0, min(sw, int(last["x"] * sw)))
+        py = max(0, min(sh, int(last["y"] * sh)))
+        await self._client.control.send_touch(1, px, py, sw, sh)
 

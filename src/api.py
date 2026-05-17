@@ -1,4 +1,4 @@
-﻿
+
 
 import subprocess
 import sys
@@ -16,9 +16,6 @@ class Api:
         self._maximized = False
         self.scrcpy = ScrcpyManager()
         self.key_mapping_executor = KeyMappingExecutor(self.scrcpy)
-
-        self.key_mapping_hook = None
-        self.key_mapping_executor = None
 
     def get_config_file(self):
         config = self.file_manager.load_config_file()
@@ -69,6 +66,21 @@ class Api:
         key_name = self.macro.get_key_name()
         return key_name
 
+    def start_key_listener(self):
+        """开始监听按键输入，用于前端轮询获取按键名称"""
+        self.macro.start_listening_key()
+        return {"ok": True}
+
+    def stop_key_listener(self):
+        """停止监听按键输入"""
+        self.macro.stop_listening_key()
+        return {"ok": True}
+
+    def get_pressed_key(self):
+        """获取最后按下的按键，用于前端轮询"""
+        key = self.macro.get_last_key()
+        return {"key": key}
+
     def get_mouse_position(self):
         x, y = self.macro.get_mouse_position()
         return f'{x}, {y}'
@@ -93,28 +105,45 @@ class Api:
         return self.file_manager._load_project_info()
 
     def minimize(self):
+        self.logger.info('Minimize called')
         if self._window:
-            self._window.minimize()
+            try:
+                self._window.minimize()
+                self.logger.info('Window minimized successfully')
+            except Exception as e:
+                self.logger.error(f'Failed to minimize window: {e}')
 
     def close(self):
+        self.logger.info('Close called')
         if self._window:
-            config = self.file_manager.load_config_file()
-            minimize_to_tray = config.get('minimizeToTray', True)
-            if minimize_to_tray:
-                self._window.hide()
-            else:
-                self._window.destroy()
+            try:
+                config = self.file_manager.load_config_file()
+                minimize_to_tray = config.get('minimizeToTray', True)
+                if minimize_to_tray:
+                    self.logger.info('Hiding window to tray')
+                    self._window.hide()
+                else:
+                    self.logger.info('Destroying window')
+                    self._window.destroy()
+            except Exception as e:
+                self.logger.error(f'Failed to close window: {e}')
 
     def toggle_maximize(self):
+        self.logger.info('Toggle maximize called')
         if self._window:
-            if self._maximized:
-                self._window.restore()
-                self._maximized = False
-                return False
-            else:
-                self._window.maximize()
-                self._maximized = True
-                return True
+            try:
+                if self._maximized:
+                    self._window.restore()
+                    self._maximized = False
+                    self.logger.info('Window restored')
+                    return False
+                else:
+                    self._window.maximize()
+                    self._maximized = True
+                    self.logger.info('Window maximized')
+                    return True
+            except Exception as e:
+                self.logger.error(f'Failed to toggle maximize: {e}')
         return False
 
     def open_url(self, url: str):
@@ -130,29 +159,43 @@ class Api:
             self.logger.error(f'打开链接失败: {e}')
             return False
 
+    def _is_window_valid(self):
+        """检查窗口是否仍然有效且可访问"""
+        if not self._window:
+            return False
+        try:
+            if hasattr(self._window, '_impl') and hasattr(self._window._impl, 'webview'):
+                import ctypes
+                if ctypes.c_long(self._window._impl.webview.IsDisposed).value != 0:
+                    return False
+            self._window.evaluate_js('1')
+            return True
+        except Exception:
+            return False
+
     def disable_json_editor(self):
-        if self._window:
+        if self._is_window_valid():
             try:
                 self._window.evaluate_js('window.disableJsonEditor && window.disableJsonEditor()')
             except Exception as e:
                 self.logger.error(f'disable_json_editor 执行失败: {e}')
 
     def enable_json_editor(self):
-        if self._window:
+        if self._is_window_valid():
             try:
                 self._window.evaluate_js('window.enableJsonEditor && window.enableJsonEditor()')
             except Exception as e:
                 self.logger.error(f'enable_json_editor 执行失败: {e}')
 
     def save_json_file(self):
-        if self._window:
+        if self._is_window_valid():
             try:
                 self._window.evaluate_js('window.saveFile && window.saveFile()')
             except Exception as e:
                 self.logger.error(f'save_json_file 执行失败: {e}')
 
     def toggle_screencast_fullscreen(self):
-        if self._window:
+        if self._is_window_valid():
             try:
                 self._window.evaluate_js('window.toggleScreencastFullscreen && window.toggleScreencastFullscreen()')
             except Exception as e:
@@ -229,37 +272,27 @@ class Api:
     def delete_key_mapping_file(self, file_name):
         return self.file_manager.delete_key_mapping_file(file_name)
 
+    def set_key_mapping_executor(self, executor):
+        self.key_mapping_executor = executor
+        if self.macro:
+            self.macro.set_key_mapping_executor(executor)
+        return {"ok": True}
+
     def apply_key_mapping(self, file_name):
         data = self.file_manager.load_key_mapping_file(file_name)
         if not data:
             return {"ok": False, "error": "failed to load key mapping"}
         self.scrcpy.apply_key_mapping(data)
-        if self.key_mapping_executor:
-            self.key_mapping_executor.apply(data)
+        self.key_mapping_executor.apply(data)
         return {"ok": True}
 
     def remove_key_mapping(self):
         self.scrcpy.remove_key_mapping()
-        if self.key_mapping_executor:
-            self.key_mapping_executor.remove()
+        self.key_mapping_executor.remove()
         return {"ok": True}
 
     def scrcpy_send_normalized_touch(self, action, x, y):
         return self.scrcpy.send_normalized_touch(action, x, y)
-
-    def set_key_mapping_executor(self, executor):
-        self.key_mapping_executor = executor
-        return {"ok": True}
-
-    def exec_key_mapping_down(self, key_name):
-        if hasattr(self, 'key_mapping_executor') and self.key_mapping_executor:
-            return {"ok": self.key_mapping_executor.on_key_down(key_name)}
-        return {"ok": False, "error": "executor not initialized"}
-
-    def exec_key_mapping_up(self, key_name):
-        if hasattr(self, 'key_mapping_executor') and self.key_mapping_executor:
-            return {"ok": self.key_mapping_executor.on_key_up(key_name)}
-        return {"ok": False, "error": "executor not initialized"}
 
     def get_key_mapping_mapped_keys(self):
         if hasattr(self, 'key_mapping_executor') and self.key_mapping_executor:
@@ -275,17 +308,6 @@ class Api:
     def get_android_keycode(self, key_name):
         return self.scrcpy.key_mapping_get_android_keycode(key_name)
 
-    def set_key_mapping_hook(self, hook):
-        self.key_mapping_hook = hook
-
-    def set_key_mapping_auto_hide(self, enabled: bool):
-        if self.key_mapping_hook is None:
-            return {"ok": False, "error": "hook not initialized"}
-        if enabled:
-            self.key_mapping_hook.start()
-        else:
-            self.key_mapping_hook.stop()
-        return {"ok": True}
     def __dir__(self):
         return [
             'get_app_info', 'minimize', 'close', 'toggle_maximize', 'open_url',
@@ -312,12 +334,12 @@ class Api:
             'key_mapping_trigger',
             'key_mapping_swipe',
             'get_android_keycode',
-            'set_key_mapping_auto_hide',
             'scrcpy_send_normalized_touch',
             'set_key_mapping_executor',
-            'exec_key_mapping_down',
-            'exec_key_mapping_up',
             'get_key_mapping_mapped_keys',
+            'start_key_listener',
+            'stop_key_listener',
+            'get_pressed_key',
         ]
 
 

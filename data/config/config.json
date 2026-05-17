@@ -9,5 +9,6 @@
         "bitrate": "unlimited",
         "fpsLimit": "unlimited",
         "showFps": true
-    }
+    },
+    "keyMappingFile": "默认配置"
 }

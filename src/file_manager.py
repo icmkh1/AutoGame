@@ -362,10 +362,10 @@ class FileManager:
         mapping_dir.mkdir(parents=True, exist_ok=True)
         file_list = [f.stem for f in mapping_dir.glob('*.json') if f.suffix == '.json']
         if not file_list:
-            default_data = {'version': 1, 'name': '默讯问Key', 'autoHideMouse': False, 'controls': [], 'dpad': [], 'swipes': []}
-            with open(mapping_dir / '默讛问key.json', 'w', encoding='utf-8') as f:
+            default_data = {'version': 1, 'name': '默认配置', 'autoHideMouse': False, 'controls': [], 'dpad': [], 'swipes': []}
+            with open(mapping_dir / '默认配置.json', 'w', encoding='utf-8') as f:
                 json.dump(default_data, f, ensure_ascii=False, indent=4)
-            file_list = ['默讻问key']
+            file_list = ['默认配置']
         return file_list
 
     def load_key_mapping_file(self, file_name):
@@ -396,7 +396,7 @@ class FileManager:
             existing = [f.stem for f in mapping_dir.glob('*.json')]
             new_name = ''
             for i in range(1, 1000):
-                name = f'新륺对位狻{i}'
+                name = f'新建键位{i}'
                 if name not in existing:
                     new_name = name
                     break

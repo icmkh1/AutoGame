@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 class KeyMappingExecutor:
     def __init__(self, scrcpy_manager):
         self.scrcpy = scrcpy_manager
         self._active_mapping = None
         self._enabled = False
-        self._pressed_keys = set()
+        self._down_state_keys = []  # 记录已按下的按键，防止重复触发
 
     def apply(self, mapping_data):
         self._active_mapping = mapping_data
@@ -18,7 +16,6 @@ class KeyMappingExecutor:
     def remove(self):
         self._active_mapping = None
         self._enabled = False
-        self._pressed_keys.clear()
 
     @property
     def enabled(self):
@@ -48,9 +45,11 @@ class KeyMappingExecutor:
         """Handle key press - send touch events at control positions."""
         if not self._enabled or not self._active_mapping:
             return False
-        if key_name in self._pressed_keys:
+
+        if key_name in self._down_state_keys:
             return False
-        self._pressed_keys.add(key_name)
+
+        self._down_state_keys.append(key_name)
 
         # Check single controls
         for ctrl in self._active_mapping.get("controls", []):
@@ -91,9 +90,9 @@ class KeyMappingExecutor:
         """Handle key release - send touch up at control position."""
         if not self._enabled or not self._active_mapping:
             return False
-        if key_name not in self._pressed_keys:
-            return False
-        self._pressed_keys.discard(key_name)
+
+        if key_name in self._down_state_keys:
+            self._down_state_keys.remove(key_name)
 
         # Single controls need touch up
         for ctrl in self._active_mapping.get("controls", []):
