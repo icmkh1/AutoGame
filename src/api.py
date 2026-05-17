@@ -185,6 +185,21 @@ class Api:
     def scrcpy_discover_usb_serial(self):
         return self.scrcpy.discover_usb_serial()
 
+    def scrcpy_volume_up(self):
+        return self.scrcpy.volume_up()
+
+    def scrcpy_volume_down(self):
+        return self.scrcpy.volume_down()
+
+    def scrcpy_back(self):
+        return self.scrcpy.back()
+
+    def scrcpy_switch_app(self):
+        return self.scrcpy.switch_app()
+
+    def scrcpy_home(self):
+        return self.scrcpy.home()
+
     def __dir__(self):
         return [
             'get_app_info', 'minimize', 'close', 'toggle_maximize', 'open_url',
@@ -198,4 +213,6 @@ class Api:
             'scrcpy_start', 'scrcpy_stop', 'scrcpy_status', 'scrcpy_poll_events',
             'scrcpy_send_touch', 'scrcpy_send_keycode', 'scrcpy_set_clipboard',
             'scrcpy_switch_to_wireless', 'scrcpy_discover_usb_serial',
+            'scrcpy_volume_up', 'scrcpy_volume_down', 'scrcpy_back',
+            'scrcpy_switch_app', 'scrcpy_home',
         ]

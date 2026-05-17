@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import base64
@@ -18,6 +18,14 @@ class ScrcpyManager:
     """
 
     PLUGIN_DIR = Path(__file__).resolve().parents[1] / "plugins" / "scrcpy"
+
+    ANDROID_KEYCODE_HOME = 3
+    ANDROID_KEYCODE_BACK = 4
+    ANDROID_KEYCODE_VOLUME_UP = 24
+    ANDROID_KEYCODE_VOLUME_DOWN = 25
+    ANDROID_KEYCODE_APP_SWITCH = 187
+    ANDROID_ACTION_DOWN = 0
+    ANDROID_ACTION_UP = 1
 
     def __init__(self) -> None:
         self._loop = asyncio.new_event_loop()
@@ -73,6 +81,21 @@ class ScrcpyManager:
 
     def discover_usb_serial(self) -> str | None:
         return self._submit(self._discover_usb_serial())
+
+    def volume_up(self) -> dict[str, Any]:
+        return self._submit(self._volume_up())
+
+    def volume_down(self) -> dict[str, Any]:
+        return self._submit(self._volume_down())
+
+    def back(self) -> dict[str, Any]:
+        return self._submit(self._back())
+
+    def switch_app(self) -> dict[str, Any]:
+        return self._submit(self._switch_app())
+
+    def home(self) -> dict[str, Any]:
+        return self._submit(self._home())
 
     # ------------------------------------------------------------------ #
     # Async implementations
@@ -207,6 +230,57 @@ class ScrcpyManager:
             server_path=self.PLUGIN_DIR / "scrcpy-server",
         )
         return await launcher.discover_usb_serial()
+
+    async def _volume_up(self) -> dict[str, Any]:
+        if self._client is None or self._client.control is None:
+            return {"ok": False, "error": "control stream is not running"}
+        try:
+            await self._client.control.send_keycode(self.ANDROID_ACTION_DOWN, self.ANDROID_KEYCODE_VOLUME_UP)
+            await self._client.control.send_keycode(self.ANDROID_ACTION_UP, self.ANDROID_KEYCODE_VOLUME_UP)
+            return {"ok": True}
+        except (BrokenPipeError, ConnectionError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    async def _volume_down(self) -> dict[str, Any]:
+        if self._client is None or self._client.control is None:
+            return {"ok": False, "error": "control stream is not running"}
+        try:
+            await self._client.control.send_keycode(self.ANDROID_ACTION_DOWN, self.ANDROID_KEYCODE_VOLUME_DOWN)
+            await self._client.control.send_keycode(self.ANDROID_ACTION_UP, self.ANDROID_KEYCODE_VOLUME_DOWN)
+            return {"ok": True}
+        except (BrokenPipeError, ConnectionError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    async def _back(self) -> dict[str, Any]:
+        if self._client is None or self._client.control is None:
+            return {"ok": False, "error": "control stream is not running"}
+        try:
+            await self._client.control.send_keycode(self.ANDROID_ACTION_DOWN, self.ANDROID_KEYCODE_BACK)
+            await self._client.control.send_keycode(self.ANDROID_ACTION_UP, self.ANDROID_KEYCODE_BACK)
+            return {"ok": True}
+        except (BrokenPipeError, ConnectionError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    async def _switch_app(self) -> dict[str, Any]:
+        if self._client is None or self._client.control is None:
+            return {"ok": False, "error": "control stream is not running"}
+        try:
+            await self._client.control.send_keycode(self.ANDROID_ACTION_DOWN, self.ANDROID_KEYCODE_APP_SWITCH)
+            await self._client.control.send_keycode(self.ANDROID_ACTION_UP, self.ANDROID_KEYCODE_APP_SWITCH)
+            return {"ok": True}
+        except (BrokenPipeError, ConnectionError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    async def _home(self) -> dict[str, Any]:
+        if self._client is None or self._client.control is None:
+            return {"ok": False, "error": "control stream is not running"}
+        try:
+            await self._client.control.send_keycode(self.ANDROID_ACTION_DOWN, self.ANDROID_KEYCODE_HOME)
+            await self._client.control.send_keycode(self.ANDROID_ACTION_UP, self.ANDROID_KEYCODE_HOME)
+            return {"ok": True}
+        except (BrokenPipeError, ConnectionError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
+
 
     # ------------------------------------------------------------------ #
     # Event pump
