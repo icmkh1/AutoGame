@@ -567,6 +567,7 @@ class Macro:
             '!辅助': args[0][1],
             '辅助': args[0][0],
         }
+        print(key_mappings)
         self.logger.info(f'功能 组合 data：{data}')
         try:
             key_mouse_mode = data.get("键鼠模式", 'send')
@@ -988,8 +989,8 @@ class Macro:
         if self.listening_for_key:
             self.last_key_pressed = self.key_name
 
-        # if not self.path_manager.is_frozen():
-        #     self.logger.info(f'键鼠监听器 按键按下：{self.key_name}')
+        if not self.path_manager.is_frozen():
+            self.logger.info(f'键鼠监听器 按键按下：{self.key_name}')
 
         # 宏开关切换
         if self.key_name == self.macro_switch_key and self.macro_file:
@@ -997,14 +998,18 @@ class Macro:
             self.logger.info(f'宏开关切换：{self.macro_switch}')
             self._switch_toggle()
 
+        # 按键映射执行器触发 (scrcpy 触摸事件)
+        # 异常保护：避免钩子线程因按键映射执行器崩溃而全局失效
+        try:
+            if self.key_mapping_executor and self.key_mapping_executor.enabled:
+                self.key_mapping_executor.on_key_down(self.key_name)
+        except Exception as e:
+            self.logger.error(f"按键映射执行器 on_key_down 异常: {e}", exc_info=True)
+
         # 宏功能触发
         if self.macro_switch and self.key_name not in self.down_state_keys:
-                self.down_state_keys.append(self.key_name)
-                self._macro_trigger()
-
-        # 按键映射执行器触发 (scrcpy 触摸事件)
-        if self.key_mapping_executor and self.key_mapping_executor.enabled:
-            self.key_mapping_executor.on_key_down(self.key_name)
+            self.down_state_keys.append(self.key_name)
+            self._macro_trigger()
 
         return False
 
@@ -1019,8 +1024,16 @@ class Macro:
         elif isinstance(event, MouseEvent):
             self.key_name = event.button
 
-        # if not self.path_manager.is_frozen():
-        #     self.logger.info(f'键鼠监听器 按键弹起：{self.key_name}')
+        if not self.path_manager.is_frozen():
+            self.logger.info(f'键鼠监听器 按键弹起：{self.key_name}')
+
+        # 按键映射执行器弹起事件 (scrcpy 触摸释放)
+        # 异常保护：避免钩子线程因按键映射执行器崩溃而全局失效
+        try:
+            if self.key_mapping_executor and self.key_mapping_executor.enabled:
+                self.key_mapping_executor.on_key_up(self.key_name)
+        except Exception as e:
+            self.logger.error(f"按键映射执行器 on_key_up 异常: {e}", exc_info=True)
 
         # 宏功能触发
         if self.macro_switch and self.key_name in self.down_state_keys:
@@ -1034,10 +1047,6 @@ class Macro:
                             lambda: self.logger.error(f'功能 {data["功能类型"]} 不存在')
                         )
                         Thread(target=function, args=(data,)).start()
-
-        # 按键映射执行器弹起事件 (scrcpy 触摸释放)
-        if self.key_mapping_executor and self.key_mapping_executor.enabled:
-            self.key_mapping_executor.on_key_up(self.key_name)
 
         # 宏开关关闭时清空所有按键记录
         if not self.macro_switch:

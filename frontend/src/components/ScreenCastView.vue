@@ -688,6 +688,11 @@ function resizeCanvas() {
 async function onPointer(action: number, event: PointerEvent) {
   if (!status.value.running || !session.value.width || !session.value.height || !canvas.value) return
 
+  // Only send ACTION_MOVE when a button is actually held down
+  // This avoids flooding the scrcpy control stream with spurious moves
+  // when the user is just hovering the mouse over the canvas.
+  if (action === 2 && event.buttons === 0) return
+
   const rect = canvas.value.getBoundingClientRect()
   const x = Math.max(0, Math.min(session.value.width, Math.round(((event.clientX - rect.left) / rect.width) * session.value.width)))
   const y = Math.max(0, Math.min(session.value.height, Math.round(((event.clientY - rect.top) / rect.height) * session.value.height)))

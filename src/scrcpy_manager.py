@@ -9,6 +9,7 @@ from typing import Any
 
 from autoxkit.android.adb import AdbServerLauncher
 from autoxkit.android import AudioVideoEvent, ScrcpyClient, ScrcpyOptions, StreamKind
+from autoxkit.android.control import PointerManager, ACTION_DOWN
 
 
 class ScrcpyManager:
@@ -142,6 +143,7 @@ class ScrcpyManager:
         self._last_session: tuple[int, int] | None = None
         self._launcher: AdbServerLauncher | None = None
         self._address: str | None = None
+        self._pointer_manager = PointerManager()
 
     # ------------------------------------------------------------------ #
     # Public API (called from pywebview thread)
@@ -217,6 +219,7 @@ class ScrcpyManager:
         audio_source = cfg.get("audioSource", "output")
         quality = cfg.get("quality", "unlimited")
         bitrate = cfg.get("bitrate", "unlimited")
+        print(bitrate)
         fps_limit = cfg.get("fpsLimit", "unlimited")
 
         video_enabled = video_source != "none"
@@ -227,7 +230,10 @@ class ScrcpyManager:
             server_args.append(f"video_source={video_source}")
             if quality != "unlimited":
                 server_args.append(f"max_size={quality}")
-            if bitrate != "unlimited":
+            if bitrate == "unlimited":
+                # True unlimited: set a high bitrate (100 Mbps)
+                server_args.append("video_bit_rate=100000000")
+            else:
                 # e.g. "4M" -> 4000000
                 bitrate_int = bitrate[:-1] + "000000" if bitrate.endswith("M") else bitrate
                 server_args.append(f"video_bit_rate={bitrate_int}")
@@ -259,6 +265,8 @@ class ScrcpyManager:
             return {"running": False, "error": str(exc)}
 
         self._client = client
+        if client is not None and client.control is not None:
+            client.control.pointer_manager = self._pointer_manager
         self._pump_task = asyncio.create_task(self._pump_events(client))
         return self._make_status()
 
@@ -475,9 +483,13 @@ class ScrcpyManager:
             return {"ok": True}
         return {"ok": False, "error": f"unknown key: {key_name}"}
 
-    def send_normalized_touch(self, action: int, x: float, y: float) -> dict:
+    def send_normalized_touch(self, action: int, x: float, y: float, pointer_id: int | None = None) -> dict:
         """Send touch event with normalized 0.0-1.0 coordinates.
+
         Converts to session pixel coordinates using last known session size.
+        When *pointer_id* is ``None``, the ``send_touch_managed`` path is
+        used (auto-allocate on DOWN / auto-release on UP).
+        Returns ``{"ok": True, "pointer_id": <id>}`` on success.
         """
         if self._client is None or self._client.control is None:
             return {"ok": False, "error": "control stream is not running"}
@@ -486,7 +498,38 @@ class ScrcpyManager:
         sw, sh = self._last_session
         px = max(0, min(sw, int(x * sw)))
         py = max(0, min(sh, int(y * sh)))
-        return self._submit(self._send_touch(action, px, py, sw, sh))
+        return self._submit(self._send_touch_managed(action, px, py, sw, sh, pointer_id))
+
+    async def _send_touch_managed(self, action: int, x: int, y: int, width: int, height: int, pointer_id: int | None = None) -> dict:
+        """Send touch event via control stream with optional pointer ID management.
+
+        Wraps ``control.send_touch_managed`` and returns the allocated
+        pointer_id in the response dict when applicable.
+        """
+        if self._client is None or self._client.control is None:
+            return {"ok": False, "error": "control stream is not running"}
+        try:
+            pid = await self._client.control.send_touch_managed(
+                action, x, y, width, height,
+                pointer_id=pointer_id,
+                pressure=0.0 if action == 1 else 1.0,
+            )
+            if pid is None and action == ACTION_DOWN:
+                return {"ok": False, "error": "failed to allocate pointer (max 10 touches)"}
+            result: dict[str, Any] = {"ok": True}
+            if pid is not None:
+                result["pointer_id"] = pid
+            return result
+        except (BrokenPipeError, ConnectionError, OSError) as exc:
+            return {"ok": False, "error": str(exc)}
+
+    def key_mapping_reset(self) -> dict:
+        """Reset the pointer manager, releasing all active touch pointers."""
+        self._pointer_manager.reset()
+        return {"ok": True}
+
+    def get_pointer_manager(self) -> PointerManager:
+        return self._pointer_manager
 
 
     def key_mapping_swipe(self, path_data: list) -> dict:

@@ -1,4 +1,4 @@
-"""Key mapping executor that sends touch events via scrcpy control stream."""
+﻿"""Key mapping executor that sends touch events via scrcpy control stream."""
 
 from __future__ import annotations
 
@@ -7,13 +7,14 @@ class KeyMappingExecutor:
         self.scrcpy = scrcpy_manager
         self._active_mapping = None
         self._enabled = False
-        self._down_state_keys = []  # 记录已按下的按键，防止重复触发
+        self._down_state_keys: dict[str, int] = {}  # 记录已按下的按键，防止重复触发
 
     def apply(self, mapping_data):
         self._active_mapping = mapping_data
         self._enabled = True
 
     def remove(self):
+        self.reset()
         self._active_mapping = None
         self._enabled = False
 
@@ -49,14 +50,18 @@ class KeyMappingExecutor:
         if key_name in self._down_state_keys:
             return False
 
-        self._down_state_keys.append(key_name)
+        # pointer_id will be stored from send response below
 
         # Check single controls
         for ctrl in self._active_mapping.get("controls", []):
             if ctrl.get("key") == key_name:
                 x = ctrl.get("x", 0.5)
                 y = ctrl.get("y", 0.5)
-                self.scrcpy.send_normalized_touch(0, x, y)
+                resp = self.scrcpy.send_normalized_touch(0, x, y)
+                if resp.get("ok"):
+                    pid = resp.get("pointer_id")
+                    if pid is not None:
+                        self._down_state_keys[key_name] = pid
                 return True
 
         # Check swipes
@@ -79,27 +84,31 @@ class KeyMappingExecutor:
                     dist = size_norm * 0.4
                     ex = cx + dx * dist
                     ey = cy + dy * dist
-                    self.scrcpy.send_normalized_touch(0, cx, cy)
-                    self.scrcpy.send_normalized_touch(2, ex, ey)
-                    self.scrcpy.send_normalized_touch(1, ex, ey)
+                    resp = self.scrcpy.send_normalized_touch(0, cx, cy)
+                    if resp.get("ok"):
+                        pid = resp.get("pointer_id")
+                        if pid is not None:
+                            self.scrcpy.send_normalized_touch(2, ex, ey, pointer_id=pid)
+                            self.scrcpy.send_normalized_touch(1, ex, ey, pointer_id=pid)
                     return True
-
-        return False
 
     def on_key_up(self, key_name):
         """Handle key release - send touch up at control position."""
         if not self._enabled or not self._active_mapping:
             return False
 
-        if key_name in self._down_state_keys:
-            self._down_state_keys.remove(key_name)
+        pid = self._down_state_keys.pop(key_name, None)
 
         # Single controls need touch up
         for ctrl in self._active_mapping.get("controls", []):
             if ctrl.get("key") == key_name:
                 x = ctrl.get("x", 0.5)
                 y = ctrl.get("y", 0.5)
-                self.scrcpy.send_normalized_touch(1, x, y)
-                return True
+                self.scrcpy.send_normalized_touch(1, x, y, pointer_id=pid)
 
-        return False
+    def reset(self):
+        """Reset all active key states and release pointers."""
+        self._down_state_keys.clear()
+        if self.scrcpy:
+            self.scrcpy.key_mapping_reset()
+
