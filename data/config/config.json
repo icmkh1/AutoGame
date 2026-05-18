@@ -5,8 +5,8 @@
     "screencast": {
         "videoSource": "display",
         "audioSource": "output",
-        "quality": "720",
-        "bitrate": "8M",
+        "quality": "unlimited",
+        "bitrate": "unlimited",
         "fpsLimit": "unlimited",
         "showFps": true
     },

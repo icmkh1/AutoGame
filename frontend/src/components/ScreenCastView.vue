@@ -38,8 +38,8 @@
                @mousedown.left.stop="startDrag($event, ctrl)"
                @click.stop="editControl(ctrl)">
             <div class="control-circle">
-              <span class="control-label">{{ ctrl.label || (editingControlId === ctrl.id ? "..." : "?") }}</span>
-              <button class="control-close" @click.stop="removeControl(ctrl.id)">&times;</button>
+              <span class="control-label" :style="ctrlLabelStyle(ctrl)">{{ ctrl.label || (editingControlId === ctrl.id ? "..." : "?") }}</span>
+              <button class="control-close" @click.stop="removeControl(ctrl.id)" :style="controlCloseStyle(ctrl)">&times;</button>
             </div>
           </div>
           <!-- DPad controls -->
@@ -55,11 +55,11 @@
                  @click.stop="editDpadKey(dpad, dir)">
               {{ dpad.keys[dir].label }}
             </div>
-            <div class="resize-handle br" @mousedown.stop="startDpadResize($event, dpad)"></div>
-            <div class="resize-handle tr" @mousedown.stop="startDpadResize($event, dpad)"></div>
-            <div class="resize-handle bl" @mousedown.stop="startDpadResize($event, dpad)"></div>
-            <div class="resize-handle tl" @mousedown.stop="startDpadResize($event, dpad)"></div>
-            <button class="control-close" @click.stop="removeControl(dpad.id)" :style="{ position: 'absolute', top: '-6px', right: '-6px', zIndex: 10 }">&times;</button>
+            <div class="resize-handle br" :style="resizeHandleStyle(dpad, 'br')" @mousedown.stop="startDpadResize($event, dpad)"></div>
+            <div class="resize-handle tr" :style="resizeHandleStyle(dpad, 'tr')" @mousedown.stop="startDpadResize($event, dpad)"></div>
+            <div class="resize-handle bl" :style="resizeHandleStyle(dpad, 'bl')" @mousedown.stop="startDpadResize($event, dpad)"></div>
+            <div class="resize-handle tl" :style="resizeHandleStyle(dpad, 'tl')" @mousedown.stop="startDpadResize($event, dpad)"></div>
+            <button class="control-close" @click.stop="removeControl(dpad.id)" :style="{ ...controlCloseStyle(dpad), position: 'absolute', zIndex: 10 }">&times;</button>
           </div>
           <!-- Swipe controls -->
           <div v-for="swp in swipes" :key="swp.id"
@@ -69,8 +69,8 @@
                @mousedown.left.stop="startDrag($event, swp, 'swipe')"
                @click.stop="editControl(swp)">
             <div class="control-circle">
-              <span class="control-label">{{ swp.label || "滑动" }}</span>
-              <button class="control-close" @click.stop="removeControl(swp.id)">&times;</button>
+              <span class="control-label" :style="ctrlLabelStyle(swp)">{{ swp.label || "滑动" }}</span>
+              <button class="control-close" @click.stop="removeControl(swp.id)" :style="controlCloseStyle(swp)">&times;</button>
             </div>
           </div>
           <!-- Swipe recording preview -->
@@ -309,6 +309,33 @@ const emit = defineEmits<{
   (e: "back"): void
   (e: "fullscreen-change", isFull: boolean): void
 }>()
+
+const keyNameMap: Record<string, string> = {
+  "Numpad0": "N0",
+  "Numpad1": "N1",
+  "Numpad2": "N2",
+  "Numpad3": "N3",
+  "Numpad4": "N4",
+  "Numpad5": "N5",
+  "Numpad6": "N6",
+  "Numpad7": "N7",
+  "Numpad8": "N8",
+  "Numpad9": "N9",
+  "CapsLock": "CLk",
+  "LShift": "LSFT",
+  "RShift": "RSFT",
+  "Insert": "INS",
+  "Delete": "DEL",
+  "ScrollLock": "SLK",
+  "VolumeDown": "VOLDW",
+  "VolumeUp": "VOLUP",
+  "VolumeMute": "MUTE",
+  "LaunchApp2": "App2",
+}
+
+function getKeyLabel(key: string): string {
+  return keyNameMap[key] || key
+}
 
 // ------------------------------------------------------------------ #
 // Screen / canvas state
@@ -769,12 +796,42 @@ function ctrlStyle(item: any, isDpad = false) {
   const pw = rect.width, ph = rect.height
   if (pw <= 0 || ph <= 0) return {}
   if (isDpad) {
-    const s = (item.size || 0.06) * pw * 2.5
+    const s = (item.size || 0.06) * pw
     return { left: (item.x*pw)+"px", top: (item.y*ph)+"px", width: s+"px", height: s+"px" }
   }
-  const sw = session.value.width || 1920
-  const r = (item.radius || 25) * (pw/sw) * 2.5
-  return { left: (item.x*pw)+"px", top: (item.y*ph)+"px", width: (r*2)+"px", height: (r*2)+"px" }
+  const sw = 1920
+  const r = (item.radius || 25) * (pw/sw)
+  const fontSize = r * 0.5
+  return { left: (item.x*pw)+"px", top: (item.y*ph)+"px", width: (r*2)+"px", height: (r*2)+"px", fontSize: fontSize+"px" }
+}
+
+function ctrlLabelStyle(item: any) {
+  if (!canvas.value) return {}
+  const rect = canvas.value.getBoundingClientRect()
+  const pw = rect.width
+  if (pw <= 0) return {}
+  const sw = 1920
+  const r = (item.radius || 25) * (pw/sw)
+  const fontSize = r * 0.6
+  return { fontSize: fontSize+"px" }
+}
+
+function controlCloseStyle(item: any) {
+  if (!canvas.value) return {}
+  const rect = canvas.value.getBoundingClientRect()
+  const pw = rect.width
+  if (pw <= 0) return {}
+  const sw = 1920
+  const r = (item.radius || 25) * (pw/sw)
+  const btnSize = r * 0.9
+  const fontSize = btnSize * 0.9
+  return {
+    width: btnSize + "px",
+    height: btnSize + "px",
+    fontSize: fontSize + "px",
+    top: (-btnSize / 2.5) + "px",
+    right: (-btnSize / 2.5) + "px"
+  }
 }
 
 function getDpadKeyStyle(dpad: any, dir: string) {
@@ -782,11 +839,31 @@ function getDpadKeyStyle(dpad: any, dir: string) {
   const rect = canvas.value.getBoundingClientRect()
   const pw = rect.width
   if (pw <= 0) return {}
-  const s = (dpad.size || 0.06) * pw * 2.5, r = s/2, o = r*0.55
-  const keySize = r * 0.5
+  const s = (dpad.size || 0.06) * pw, r = s/2, o = r*0.6
+  const keySize = r * 0.4
+  const fontSize = keySize * 0.55
   const angles: Record<string, number> = {up:-90,down:90,left:180,right:0}
   const a = (angles[dir] ?? 0) * Math.PI/180
-  return { left: (r+o*Math.cos(a)-keySize/2)+"px", top: (r+o*Math.sin(a)-keySize/2)+"px", width: keySize+"px", height: keySize+"px", lineHeight: keySize+"px", textAlign:"center" as const, fontSize: (keySize*0.5)+"px", position:"absolute" as const, cursor:"pointer", background:"rgba(255,255,255,0.2)", borderRadius: (keySize*0.2)+"px", color:"#fff", userSelect:"none" as const }
+  return { left: (r+o*Math.cos(a)-keySize/2)+"px", top: (r+o*Math.sin(a)-keySize/2)+"px", width: keySize+"px", height: keySize+"px", lineHeight: keySize+"px", textAlign:"center" as const, fontSize: fontSize+"px", position:"absolute" as const, cursor:"pointer", background:"rgba(255,255,255,0.2)", borderRadius: (keySize*0.2)+"px", color:"#fff", userSelect:"none" as const }
+}
+
+function resizeHandleStyle(item: any, position: string) {
+  if (!canvas.value) return {}
+  const rect = canvas.value.getBoundingClientRect()
+  const pw = rect.width
+  if (pw <= 0) return {}
+  const s = (item.size || 0.06) * pw
+  const handleSize = Math.max(10, s * 0.08)
+  const offset = -handleSize / 2
+  const styles: Record<string, string> = {
+    width: handleSize + "px",
+    height: handleSize + "px"
+  }
+  if (position.includes('t')) styles.top = offset + "px"
+  if (position.includes('b')) styles.bottom = offset + "px"
+  if (position.includes('l')) styles.left = offset + "px"
+  if (position.includes('r')) styles.right = offset + "px"
+  return styles
 }
 function controlId(prefix: string): string {
   return prefix + "_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6)
@@ -989,7 +1066,7 @@ function createDirectionKey() {
   contextMenu.value.show = false
   if (!kmCanvasRef.value) return
   const norm = toNormalizedCoords(contextMenu.value.x, contextMenu.value.y)
-  const sizeNorm = 120 / (session.value.width || 1920)
+  const sizeNorm = 60 / (session.value.width || 1920)
   const dpad = {
     id: controlId("dpad"),
     x: norm.x, y: norm.y,
@@ -1095,7 +1172,7 @@ function onResizeMouseMove(e: MouseEvent) {
   const dx = (e.clientX - resizeStartMouse.x) / rect.width
   const dy = (e.clientY - resizeStartMouse.y) / rect.height
   const delta = Math.max(Math.abs(dx), Math.abs(dy)) * (dx + dy >= 0 ? 1 : -1)
-  const minSize = 60 / (session.value.width || 1920)
+  const minSize = 15 / (session.value.width || 1920)
   const maxSize = 0.5
   resizeTarget.size = Math.max(minSize, Math.min(maxSize, resizeStartSize + delta))
 }
@@ -1180,7 +1257,7 @@ async function processCapturedKey(key: string) {
       const dup = [...controls.value, ...swipes.value].find(c => c.id !== ctrl.id && c.key === key)
       if (!dup) {
         ctrl.key = key
-        ctrl.label = key
+        ctrl.label = getKeyLabel(key)
       }
       editingControlId.value = null
       autoSave()
@@ -1188,7 +1265,7 @@ async function processCapturedKey(key: string) {
   } else if (editingDpadId.value && editingDpadDir.value) {
     const dpad = dpads.value.find(d => d.id === editingDpadId.value)
     if (dpad) {
-      dpad.keys[editingDpadDir.value] = { key: key, label: key }
+      dpad.keys[editingDpadDir.value] = { key: key, label: getKeyLabel(key) }
     }
     editingDpadId.value = null
     editingDpadDir.value = null
