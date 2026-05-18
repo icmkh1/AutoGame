@@ -11,6 +11,7 @@ from src.key_mapping_executor import KeyMappingExecutor
 from src.file_manager import FileManager
 from src.path_manager import PathManager
 from src.logger import Logger
+from src.webview2_checker import WebView2Checker
 
 
 class AutoGameApp:
@@ -18,6 +19,7 @@ class AutoGameApp:
         self.path_manager = PathManager()
         self.logger_manager = Logger()
         self.logger = self.logger_manager.setup_logging(self.path_manager)
+        self.webview2_checker = WebView2Checker(self.logger)
         self.macro = Macro(self.logger, ocr, self.path_manager)
         self.file_manager = FileManager(self.logger, self.path_manager, self.macro)
         self.file_manager.set_memory_handler(self.logger_manager.get_memory_handler())
@@ -153,6 +155,7 @@ class AutoGameApp:
 
 if __name__ == '__main__':
     app = AutoGameApp()
+    app.webview2_checker.check_and_prompt()
     app.run()
 
 
