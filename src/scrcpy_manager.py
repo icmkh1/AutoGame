@@ -219,7 +219,6 @@ class ScrcpyManager:
         audio_source = cfg.get("audioSource", "output")
         quality = cfg.get("quality", "unlimited")
         bitrate = cfg.get("bitrate", "unlimited")
-        print(bitrate)
         fps_limit = cfg.get("fpsLimit", "unlimited")
 
         video_enabled = video_source != "none"
@@ -230,13 +229,9 @@ class ScrcpyManager:
             server_args.append(f"video_source={video_source}")
             if quality != "unlimited":
                 server_args.append(f"max_size={quality}")
-            if bitrate == "unlimited":
-                # True unlimited: set a high bitrate (100 Mbps)
-                server_args.append("video_bit_rate=100000000")
-            else:
-                # e.g. "4M" -> 4000000
-                bitrate_int = bitrate[:-1] + "000000" if bitrate.endswith("M") else bitrate
-                server_args.append(f"video_bit_rate={bitrate_int}")
+            if isinstance(bitrate, int):
+                # Frontend sends bitrate as integer (1-100 Mbps)
+                server_args.append(f"video_bit_rate={bitrate * 1000000}")
             if fps_limit != "unlimited":
                 server_args.append(f"max_fps={fps_limit}")
         if audio_enabled:

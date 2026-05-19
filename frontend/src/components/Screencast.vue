@@ -13,10 +13,10 @@ const connectionMode = ref<'usb' | 'wireless' | 'control_only' | null>(null)
 
 const videoSource = ref<'display' | 'camera' | 'none'>('display')
 const audioSource = ref<'output' | 'mic' | 'none'>('output')
-const quality = ref<'480' | '720' | '1080' | 'unlimited'>('unlimited')
-const bitrate = ref<'4M' | '6M' | '8M' | 'unlimited'>('unlimited')
-const fpsLimit = ref<'30' | '60' | '120' | 'unlimited'>('unlimited')
-const showFps = ref(true)
+const quality = ref<'480' | '720' | '1080' | '1440' | '2160' | 'unlimited'>('unlimited')
+const bitrate = ref(8)
+const fpsLimit = ref(60)
+
 
 const isOnlyControlMode = computed(() => {
   return videoSource.value === 'none' && audioSource.value === 'none'
@@ -37,17 +37,14 @@ async function loadScreencastConfig() {
       if (sc.audioSource && ['output', 'mic', 'none'].includes(sc.audioSource)) {
         audioSource.value = sc.audioSource
       }
-      if (sc.quality && ['480', '720', '1080', 'unlimited'].includes(sc.quality)) {
+      if (sc.quality && ['480', '720', '1080', '1440', '2160', 'unlimited'].includes(sc.quality)) {
         quality.value = sc.quality
       }
-      if (sc.bitrate && ['4M', '6M', '8M', 'unlimited'].includes(sc.bitrate)) {
+      if (sc.bitrate !== undefined && typeof sc.bitrate === 'number' && sc.bitrate >= 1 && sc.bitrate <= 100) {
         bitrate.value = sc.bitrate
       }
-      if (sc.fpsLimit && ['30', '60', '120', 'unlimited'].includes(sc.fpsLimit)) {
+      if (sc.fpsLimit !== undefined && typeof sc.fpsLimit === 'number' && sc.fpsLimit >= 30 && sc.fpsLimit <= 360) {
         fpsLimit.value = sc.fpsLimit
-      }
-      if (sc.showFps !== undefined) {
-        showFps.value = sc.showFps
       }
     }
   } catch (e) {
@@ -68,7 +65,6 @@ async function saveScreencastConfig() {
       quality: quality.value,
       bitrate: bitrate.value,
       fpsLimit: fpsLimit.value,
-      showFps: showFps.value,
     }
     await (window as any).pywebview.api.save_config_file(config)
   } catch (e) {
@@ -126,30 +122,25 @@ function selectAudioSource(source: 'output' | 'mic' | 'none') {
   saveScreencastConfig()
 }
 
-function selectQuality(q: '480' | '720' | '1080' | 'unlimited') {
+function selectQuality(q: '480' | '720' | '1080' | '1440' | '2160' | 'unlimited') {
   if (!shouldDisableVideoSettings.value) {
     quality.value = q
     saveScreencastConfig()
   }
 }
 
-function selectBitrate(b: '4M' | '6M' | '8M' | 'unlimited') {
+function selectBitrate(b: number) {
   if (!shouldDisableVideoSettings.value) {
     bitrate.value = b
     saveScreencastConfig()
   }
 }
 
-function selectFps(fps: '30' | '60' | '120' | 'unlimited') {
+function selectFps(fps: number) {
   if (!shouldDisableVideoSettings.value) {
     fpsLimit.value = fps
     saveScreencastConfig()
   }
-}
-
-function selectShowFps(val: boolean) {
-  showFps.value = val
-  saveScreencastConfig()
 }
 </script>
 
@@ -288,6 +279,22 @@ function selectShowFps(val: boolean) {
           </button>
           <button
             class="option-btn"
+            :class="{ active: quality === '1440', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('1440')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            1440P
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: quality === '2160', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('2160')"
+            :disabled="shouldDisableVideoSettings"
+          >
+            2160P
+          </button>
+          <button
+            class="option-btn"
             :class="{ active: quality === 'unlimited', disabled: shouldDisableVideoSettings }"
             @click="selectQuality('unlimited')"
             :disabled="shouldDisableVideoSettings"
@@ -309,39 +316,17 @@ function selectShowFps(val: boolean) {
           </svg>
           <span class="card-title">比特率</span>
         </div>
-        <div class="option-group">
-          <button
-            class="option-btn"
-            :class="{ active: bitrate === '4M', disabled: shouldDisableVideoSettings }"
-            @click="selectBitrate('4M')"
+        <div class="slider-group">
+          <input
+            type="range"
+            min="1"
+            max="100"
+            :value="bitrate"
+            @input="selectBitrate(Number(($event.target as HTMLInputElement).value))"
             :disabled="shouldDisableVideoSettings"
-          >
-            4M
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: bitrate === '6M', disabled: shouldDisableVideoSettings }"
-            @click="selectBitrate('6M')"
-            :disabled="shouldDisableVideoSettings"
-          >
-            6M
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: bitrate === '8M', disabled: shouldDisableVideoSettings }"
-            @click="selectBitrate('8M')"
-            :disabled="shouldDisableVideoSettings"
-          >
-            8M
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: bitrate === 'unlimited', disabled: shouldDisableVideoSettings }"
-            @click="selectBitrate('unlimited')"
-            :disabled="shouldDisableVideoSettings"
-          >
-            不限制
-          </button>
+            class="bitrate-slider"
+          />
+          <div class="slider-value">{{ bitrate }}M</div>
         </div>
       </div>
 
@@ -387,69 +372,19 @@ function selectShowFps(val: boolean) {
           </svg>
           <span class="card-title">帧率限制</span>
         </div>
-        <div class="option-group">
-          <button
-            class="option-btn"
-            :class="{ active: fpsLimit === '30', disabled: shouldDisableVideoSettings }"
-            @click="selectFps('30')"
+        <div class="slider-group">
+          <input
+            type="range"
+            min="30"
+            max="360"
+            :value="fpsLimit"
+            @input="selectFps(Number(($event.target as HTMLInputElement).value))"
             :disabled="shouldDisableVideoSettings"
-          >
-            30
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: fpsLimit === '60', disabled: shouldDisableVideoSettings }"
-            @click="selectFps('60')"
-            :disabled="shouldDisableVideoSettings"
-          >
-            60
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: fpsLimit === '120', disabled: shouldDisableVideoSettings }"
-            @click="selectFps('120')"
-            :disabled="shouldDisableVideoSettings"
-          >
-            120
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: fpsLimit === 'unlimited', disabled: shouldDisableVideoSettings }"
-            @click="selectFps('unlimited')"
-            :disabled="shouldDisableVideoSettings"
-          >
-            不限制
-          </button>
+            class="bitrate-slider"
+          />
+          <div class="slider-value">{{ fpsLimit }} FPS</div>
         </div>
       </div>
-
-      <!-- 帧率显示 -->
-      <div class="setting-card">
-        <div class="card-header">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" fill="none"/>
-            <path d="M8 12h8M12 8v8" stroke="currentColor"/>
-          </svg>
-          <span class="card-title">帧率显示</span>
-        </div>
-        <div class="option-group">
-          <button
-            class="option-btn"
-            :class="{ active: showFps === true }"
-            @click="selectShowFps(true)"
-          >
-            开启
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: showFps === false }"
-            @click="selectShowFps(false)"
-          >
-            关闭
-          </button>
-        </div>
-      </div>
-
     </div>
 
     <div class="connection-status" v-if="connectionMode">
