@@ -81,11 +81,6 @@ class Api:
         key = self.macro.get_last_key()
         return {"key": key}
 
-    def set_focus_state(self, focused):
-        if self.key_mapping_executor and not focused:
-            self.key_mapping_executor.set_focus_state(False)
-        return {"ok": True}
-
     def get_mouse_position(self):
         x, y = self.macro.get_mouse_position()
         return f'{x}, {y}'
@@ -343,7 +338,6 @@ class Api:
             'set_key_mapping_executor',
             'get_key_mapping_mapped_keys',
             'start_key_listener',
-            'set_focus_state',
             'stop_key_listener',
             'get_pressed_key',
         ]

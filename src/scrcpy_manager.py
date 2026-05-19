@@ -550,7 +550,7 @@ class ScrcpyManager:
         first = path_data[0]
         px = max(0, min(sw, int(first["x"] * sw)))
         py = max(0, min(sh, int(first["y"] * sh)))
-        await self._client.control.send_touch(0, px, py, sw, sh)
+        await self._client.control.send_touch(0, px, py, sw, sh, pointer_id=123)
         for i in range(1, len(path_data)):
             pt = path_data[i]
             delay = pt.get("delayMs", 0) - path_data[i-1].get("delayMs", 0)
@@ -558,9 +558,9 @@ class ScrcpyManager:
                 await asyncio.sleep(delay / 1000.0)
             px = max(0, min(sw, int(pt["x"] * sw)))
             py = max(0, min(sh, int(pt["y"] * sh)))
-            await self._client.control.send_touch(2, px, py, sw, sh)
+            await self._client.control.send_touch(2, px, py, sw, sh, pointer_id=123)
         last = path_data[-1]
         px = max(0, min(sw, int(last["x"] * sw)))
         py = max(0, min(sh, int(last["y"] * sh)))
-        await self._client.control.send_touch(1, px, py, sw, sh)
+        await self._client.control.send_touch(1, px, py, sw, sh, pointer_id=123)
 

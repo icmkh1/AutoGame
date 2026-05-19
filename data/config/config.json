@@ -5,9 +5,9 @@
     "screencast": {
         "videoSource": "display",
         "audioSource": "output",
-        "quality": "unlimited",
+        "quality": "720",
         "bitrate": "unlimited",
-        "fpsLimit": "unlimited",
+        "fpsLimit": "60",
         "showFps": true
     },
     "keyMappingFile": "新建键位1"

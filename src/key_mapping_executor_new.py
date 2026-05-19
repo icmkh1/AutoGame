@@ -245,7 +245,3 @@ class KeyMappingExecutor:
         self._dpad_states.clear()
         if self.scrcpy:
             self.scrcpy.key_mapping_reset()
-
-    def set_focus_state(self, focused):
-        if not focused and self._enabled:
-            self.reset()

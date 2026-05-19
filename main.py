@@ -1,6 +1,7 @@
 ﻿# 打包为exe文件: pyinstaller main.spec -y
 
 import webview
+import subprocess
 from threading import Thread
 from PIL import Image
 import pystray
@@ -118,6 +119,11 @@ class AutoGameApp:
         if self.macro:
             self.macro.restore_mouse_icon()
             self.macro.stop()
+        subprocess.Popen(
+            "taskkill /f /im adb.exe",
+            shell=True,
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
 
     def _create_tray(self):
         """

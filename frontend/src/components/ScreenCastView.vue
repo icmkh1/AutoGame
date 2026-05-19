@@ -467,6 +467,9 @@ let fpsTimer = 0
 let framesThisSecond = 0
 let resizeObserver: ResizeObserver | null = null
 
+let kmResizeObserver: ResizeObserver | null = null
+
+
 // ------------------------------------------------------------------ #
 // API helpers
 // ------------------------------------------------------------------ #
@@ -791,37 +794,37 @@ let resizeStartSize = 0
 let resizeStartMouse = { x: 0, y: 0 }
 
 function ctrlStyle(item: any, isDpad = false) {
-  if (!canvas.value) return {}
-  const rect = canvas.value.getBoundingClientRect()
+  if (!kmCanvasRef.value) return {}
+  const rect = kmCanvasRef.value.getBoundingClientRect()
   const pw = rect.width, ph = rect.height
   if (pw <= 0 || ph <= 0) return {}
   if (isDpad) {
     const s = (item.size || 0.06) * pw
     return { left: (item.x*pw)+"px", top: (item.y*ph)+"px", width: s+"px", height: s+"px" }
   }
-  const sw = 1920
+  const sw = session.value.width || 1920
   const r = (item.radius || 25) * (pw/sw)
   const fontSize = r * 0.5
   return { left: (item.x*pw)+"px", top: (item.y*ph)+"px", width: (r*2)+"px", height: (r*2)+"px", fontSize: fontSize+"px" }
 }
 
 function ctrlLabelStyle(item: any) {
-  if (!canvas.value) return {}
-  const rect = canvas.value.getBoundingClientRect()
+  if (!kmCanvasRef.value) return {}
+  const rect = kmCanvasRef.value.getBoundingClientRect()
   const pw = rect.width
   if (pw <= 0) return {}
-  const sw = 1920
+  const sw = session.value.width || 1920
   const r = (item.radius || 25) * (pw/sw)
   const fontSize = r * 0.6
   return { fontSize: fontSize+"px" }
 }
 
 function controlCloseStyle(item: any) {
-  if (!canvas.value) return {}
-  const rect = canvas.value.getBoundingClientRect()
+  if (!kmCanvasRef.value) return {}
+  const rect = kmCanvasRef.value.getBoundingClientRect()
   const pw = rect.width
   if (pw <= 0) return {}
-  const sw = 1920
+  const sw = session.value.width || 1920
   const r = (item.radius || 25) * (pw/sw)
   const btnSize = r * 0.9
   const fontSize = btnSize * 0.9
@@ -874,9 +877,17 @@ function toggleKeyMapping() {
   showKeyMapping.value = !showKeyMapping.value
   if (showKeyMapping.value) {
     nextTick(() => {
+      if (kmCanvasRef.value && !kmResizeObserver) {
+        kmResizeObserver = new ResizeObserver(() => { updateKmCanvasSize() })
+        kmResizeObserver.observe(kmCanvasRef.value)
+      }
       updateKmCanvasSize()
     })
   } else {
+    if (kmResizeObserver) {
+      kmResizeObserver.disconnect()
+      kmResizeObserver = null
+    }
     closeKeyMapping()
   }
 }
@@ -927,6 +938,8 @@ async function switchFile(name: string, skipSave = false) {
   editingControlId.value = null
   editingDpadId.value = null
   editingDpadDir.value = null
+
+  lastSwipePath.value = []
 
   try {
     const data = await callApi("load_key_mapping_file", name)
@@ -1051,7 +1064,7 @@ function onCanvasMouseDown(e: MouseEvent) {
     key: "",
     label: "",
     x: pos.x, y: pos.y,
-    radius: 25,
+    radius: 12,
   }
   controls.value.push(ctrl)
   editingControlId.value = ctrl.id
@@ -1109,8 +1122,16 @@ function onOverlayMouseMove(e: MouseEvent) {
   if (dragTarget) {
     if (!kmCanvasRef.value) return
     const norm = toNormalizedCoords(e.clientX, e.clientY)
+    const dx = (norm.x - dragOffsetX) - dragTarget.x
+    const dy = (norm.y - dragOffsetY) - dragTarget.y
     dragTarget.x = Math.max(0, Math.min(1, norm.x - dragOffsetX))
     dragTarget.y = Math.max(0, Math.min(1, norm.y - dragOffsetY))
+    if (dragTarget.path && Array.isArray(dragTarget.path)) {
+      dragTarget.path.forEach((p: any) => {
+        p.x += dx
+        p.y += dy
+      })
+    }
   }
 }
 
@@ -1131,7 +1152,7 @@ function onOverlayMouseUp(e: MouseEvent) {
       label: "",
       key: "",
       x: ex, y: ey,
-      radius: 25,
+      radius: 12,
       path: lastSwipePath.value,
     }
     swipes.value.push(swp)
@@ -1294,6 +1315,7 @@ async function closeKeyMapping() {
   isRecordingSwipe.value = false
   pendingSwipe.value = false
   swipePoints.value = []
+  lastSwipePath.value = []
   teardownKeyCapture()
   showKeyMapping.value = false
   // Keep key mapping active for execution
@@ -1316,12 +1338,19 @@ onMounted(async () => {
   })
   if (viewport.value) resizeObserver.observe(viewport.value)
 
+  if (kmCanvasRef.value) {
+    kmResizeObserver = new ResizeObserver(() => { updateKmCanvasSize() })
+    kmResizeObserver.observe(kmCanvasRef.value)
+  }
+
+  window.addEventListener('blur', handleBlur)
+  window.addEventListener('focus', handleFocus)
+
   // 添加键盘事件监听
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('keyup', handleKeyup)
   window.addEventListener('mousedown', handleMouseDown)
   window.addEventListener('mouseup', handleMouseUp)
-  window.addEventListener('resize', updateKmCanvasSize)
 
   await nextTick()
   updateKmCanvasSize()
@@ -1332,11 +1361,14 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   if (fpsTimer) window.clearInterval(fpsTimer)
   resizeObserver?.disconnect()
+  kmResizeObserver?.disconnect()
+  kmResizeObserver = null
+  window.removeEventListener('blur', handleBlur)
+  window.removeEventListener('focus', handleFocus)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keyup', handleKeyup)
   window.removeEventListener('mousedown', handleMouseDown)
   window.removeEventListener('mouseup', handleMouseUp)
-  window.removeEventListener('resize', updateKmCanvasSize)
   teardownKeyCapture()
 
   stopConnection()
@@ -1361,11 +1393,18 @@ function handleKeyup(_event: KeyboardEvent) {
 }
 
 // 暴露函数给父组件调用
+
+function handleBlur() {
+  callApi("set_focus_state", false).catch(() => {})
+}
+
+function handleFocus() {
+  callApi("set_focus_state", true).catch(() => {})
+}
 defineExpose({
   toggleScrcpyFullscreen
 })
 </script>
-
 
 
 
