@@ -25,6 +25,10 @@
   gap: 12px;
   margin-bottom: 24px;
   flex-wrap: wrap;
+  width: 100%;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .connect-btn {
@@ -129,15 +133,18 @@
 }
 
 .settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
   flex: 1;
 }
 
 .setting-card {
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: 10px;
+  padding: 16px 20px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -390,6 +397,6 @@
   }
 
   .settings-grid {
-    grid-template-columns: 1fr;
+    max-width: 100%;
   }
 }

@@ -243,6 +243,39 @@ function selectFps(fps: number) {
         </div>
       </div>
 
+      <!-- 音频来源 -->
+      <div class="setting-card">
+        <div class="card-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+          </svg>
+          <span class="card-title">音频来源</span>
+        </div>
+        <div class="option-group">
+          <button
+            class="option-btn"
+            :class="{ active: audioSource === 'output' }"
+            @click="selectAudioSource('output')"
+          >
+            内部输入
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: audioSource === 'mic' }"
+            @click="selectAudioSource('mic')"
+          >
+            麦克风
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: audioSource === 'none' }"
+            @click="selectAudioSource('none')"
+          >
+            不传输音频
+          </button>
+        </div>
+      </div>
+
       <!-- 画质 -->
       <div class="setting-card">
         <div class="card-header">
@@ -304,6 +337,29 @@ function selectFps(fps: number) {
         </div>
       </div>
 
+      <!-- 帧率限制 -->
+      <div class="setting-card">
+        <div class="card-header">
+          <svg viewBox="0 0 1024 1024" width="22" height="22">
+            <circle cx="512" cy="512" r="448" stroke="currentColor" stroke-width="64" fill="none"/>
+            <text x="512" y="720" font-size="560" font-weight="bold" text-anchor="middle" fill="currentColor">F</text>
+          </svg>
+          <span class="card-title">帧率限制</span>
+        </div>
+        <div class="slider-group">
+          <input
+            type="range"
+            min="30"
+            max="360"
+            :value="fpsLimit"
+            @input="selectFps(Number(($event.target as HTMLInputElement).value))"
+            :disabled="shouldDisableVideoSettings"
+            class="bitrate-slider"
+          />
+          <div class="slider-value">{{ fpsLimit }} FPS</div>
+        </div>
+      </div>
+
       <!-- 比特率 -->
       <div class="setting-card">
         <div class="card-header">
@@ -327,62 +383,6 @@ function selectFps(fps: number) {
             class="bitrate-slider"
           />
           <div class="slider-value">{{ bitrate }}M</div>
-        </div>
-      </div>
-
-      <!-- 音频来源 -->
-      <div class="setting-card">
-        <div class="card-header">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
-          </svg>
-          <span class="card-title">音频来源</span>
-        </div>
-        <div class="option-group">
-          <button
-            class="option-btn"
-            :class="{ active: audioSource === 'output' }"
-            @click="selectAudioSource('output')"
-          >
-            内部输入
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: audioSource === 'mic' }"
-            @click="selectAudioSource('mic')"
-          >
-            麦克风
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: audioSource === 'none' }"
-            @click="selectAudioSource('none')"
-          >
-            不传输音频
-          </button>
-        </div>
-      </div>
-
-      <!-- 帧率限制 -->
-      <div class="setting-card">
-        <div class="card-header">
-          <svg viewBox="0 0 1024 1024" width="22" height="22">
-            <circle cx="512" cy="512" r="448" stroke="currentColor" stroke-width="64" fill="none"/>
-            <text x="512" y="720" font-size="560" font-weight="bold" text-anchor="middle" fill="currentColor">F</text>
-          </svg>
-          <span class="card-title">帧率限制</span>
-        </div>
-        <div class="slider-group">
-          <input
-            type="range"
-            min="30"
-            max="360"
-            :value="fpsLimit"
-            @input="selectFps(Number(($event.target as HTMLInputElement).value))"
-            :disabled="shouldDisableVideoSettings"
-            class="bitrate-slider"
-          />
-          <div class="slider-value">{{ fpsLimit }} FPS</div>
         </div>
       </div>
     </div>
