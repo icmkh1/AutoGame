@@ -340,11 +340,15 @@ function selectFps(fps: number) {
       <!-- 帧率限制 -->
       <div class="setting-card">
         <div class="card-header">
-          <svg viewBox="0 0 1024 1024" width="22" height="22">
-            <circle cx="512" cy="512" r="448" stroke="currentColor" stroke-width="64" fill="none"/>
-            <text x="512" y="720" font-size="560" font-weight="bold" text-anchor="middle" fill="currentColor">F</text>
-          </svg>
-          <span class="card-title">帧率限制</span>
+          <div class="header-left">
+            <svg viewBox="0 0 1024 1024" width="22" height="22">
+              <circle cx="512" cy="512" r="448" stroke="currentColor" stroke-width="64" fill="none"/>
+              <text x="512" y="720" font-size="560" font-weight="bold" text-anchor="middle" fill="currentColor">F</text>
+            </svg>
+            <span class="card-title">帧率限制</span>
+          </div>
+          <div class="slider-value">{{ fpsLimit }} FPS</div>
+          <div class="header-right"></div>
         </div>
         <div class="slider-group">
           <input
@@ -356,21 +360,24 @@ function selectFps(fps: number) {
             :disabled="shouldDisableVideoSettings"
             class="bitrate-slider"
           />
-          <div class="slider-value">{{ fpsLimit }} FPS</div>
         </div>
       </div>
 
       <!-- 比特率 -->
       <div class="setting-card">
         <div class="card-header">
-          <svg viewBox="0 0 1024 1024" width="22" height="22">
-            <rect x="32" y="400" width="64" height="224" rx="16" fill="currentColor"/>
-            <rect x="200" y="288" width="64" height="448" rx="16" fill="currentColor"/>
-            <rect x="368" y="176" width="64" height="672" rx="16" fill="currentColor"/>
-            <rect x="536" y="288" width="64" height="448" rx="16" fill="currentColor"/>
-            <rect x="704" y="400" width="64" height="224" rx="16" fill="currentColor"/>
-          </svg>
-          <span class="card-title">比特率</span>
+          <div class="header-left">
+            <svg viewBox="0 0 1024 1024" width="22" height="22">
+              <rect x="32" y="400" width="64" height="224" rx="16" fill="currentColor"/>
+              <rect x="200" y="288" width="64" height="448" rx="16" fill="currentColor"/>
+              <rect x="368" y="176" width="64" height="672" rx="16" fill="currentColor"/>
+              <rect x="536" y="288" width="64" height="448" rx="16" fill="currentColor"/>
+              <rect x="704" y="400" width="64" height="224" rx="16" fill="currentColor"/>
+            </svg>
+            <span class="card-title">比特率</span>
+          </div>
+          <div class="slider-value">{{ bitrate }}M</div>
+          <div class="header-right"></div>
         </div>
         <div class="slider-group">
           <input
@@ -382,7 +389,6 @@ function selectFps(fps: number) {
             :disabled="shouldDisableVideoSettings"
             class="bitrate-slider"
           />
-          <div class="slider-value">{{ bitrate }}M</div>
         </div>
       </div>
     </div>

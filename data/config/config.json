@@ -7,8 +7,7 @@
         "audioSource": "output",
         "quality": "1080",
         "bitrate": 10,
-        "fpsLimit": 60,
-        "showFps": true
+        "fpsLimit": 60
     },
     "keyMappingFile": "默认配置"
 }
