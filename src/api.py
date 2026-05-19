@@ -82,8 +82,8 @@ class Api:
         return {"key": key}
 
     def set_focus_state(self, focused):
-        if self.key_mapping_executor and not focused:
-            self.key_mapping_executor.set_focus_state(False)
+        if self.key_mapping_executor:
+            self.key_mapping_executor.set_focus_state(focused)
         return {"ok": True}
 
     def get_mouse_position(self):

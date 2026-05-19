@@ -1,4 +1,4 @@
-﻿"""Key mapping executor that sends touch events via scrcpy control stream."""
+"""Key mapping executor that sends touch events via scrcpy control stream."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ class KeyMappingExecutor:
         self.scrcpy = scrcpy_manager
         self._active_mapping = None
         self._enabled = False
+        self._enabled_before_focus = False
         self._down_state_keys: dict[str, tuple[int, float, float]] = {}  # single-control key -> (pointer_id, x, y)
         self._dpad_states: dict[int, dict] = {}  # dpad index -> {pressed: set[str], pid: int|None, ex: float, ey: float}
 
@@ -248,4 +249,8 @@ class KeyMappingExecutor:
 
     def set_focus_state(self, focused):
         if not focused and self._enabled:
+            self._enabled_before_focus = self._enabled
+            self._enabled = False
             self.reset()
+        elif focused and not self._enabled and self._enabled_before_focus:
+            self._enabled = True
