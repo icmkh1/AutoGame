@@ -166,7 +166,7 @@ class ScrcpyManager:
             "deviceName": self._client.device_meta.device_name if self._client.device_meta else None,
         }
 
-    def poll_events(self, limit: int = 30) -> list[dict[str, Any]]:
+    def poll_events(self, limit: int = 60) -> list[dict[str, Any]]:
         """Poll events from the internal queue."""
         items: list[dict[str, Any]] = []
         for _ in range(max(1, min(limit, 240))):
@@ -419,9 +419,15 @@ class ScrcpyManager:
     # ------------------------------------------------------------------ #
 
     def _put_event(self, item: dict[str, Any]) -> None:
+        """Put an event into the queue, dropping the oldest item if full.
+
+        When the queue is full, drops the oldest queued event (FIFO drop)
+        to make room for the new one, ensuring fresh events are always processed.
+        """
         try:
             self._events.put_nowait(item)
         except queue.Full:
+            # Queue full - drop the oldest event to make room
             try:
                 self._events.get_nowait()
             except queue.Empty:

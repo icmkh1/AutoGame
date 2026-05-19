@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="screencast-viewer" :class="{ 'fullscreen-mode': isFullscreen }" :data-theme="currentTheme" @keydown="handleKeydown">
     <div v-if="!isFullscreen" class="viewer-sidebar">
       <button class="stop-btn" @click="handleStop">
@@ -460,7 +460,9 @@ async function handleStop() {
 
 let videoDecoder: VideoDecoder | null = null
 let audioContext: AudioContext | null = null
-let audioStartTime = 0
+let audioScheduleEnd: number = 0
+const MAX_AUDIO_SCHEDULE_HEAD = 0.15  // 150ms max schedule ahead
+const AUDIO_SCHEDULE_OFFSET = 0.01  // 10ms minimum lookahead
 let videoConfigured = false
 let pollTimer = 0
 let fpsTimer = 0
@@ -658,7 +660,7 @@ function playAudio(payload: string) {
 
   if (!audioContext) {
     audioContext = new AudioContext({ sampleRate: 48000 })
-    audioStartTime = audioContext.currentTime + 0.05
+    audioScheduleEnd = audioContext.currentTime
   }
 
   const frameCount = Math.floor(data.length / 4)
@@ -668,19 +670,25 @@ function playAudio(payload: string) {
   const ch0 = buffer.getChannelData(0)
   const ch1 = buffer.getChannelData(1)
 
-  for (let i = 0; i < frameCount; i++) {
-    const offset = i * 4
-    ch0[i] = audioSample(data[offset], data[offset + 1])
-    ch1[i] = audioSample(data[offset + 2], data[offset + 3])
+  for (let j = 0; j < frameCount; j++) {
+    const offset = j * 4
+    ch0[j] = audioSample(data[offset], data[offset + 1])
+    ch1[j] = audioSample(data[offset + 2], data[offset + 3])
   }
 
   const source = audioContext.createBufferSource()
   source.buffer = buffer
   source.connect(audioContext.destination)
 
-  const scheduledTime = Math.max(audioContext.currentTime + 0.02, audioStartTime)
+  // Use current time as base, but ensure gapless by respecting audioScheduleEnd
+  const now = audioContext.currentTime
+  // If audioScheduleEnd has drifted too far ahead (e.g. after tab switch), reset it
+  if (audioScheduleEnd - now > MAX_AUDIO_SCHEDULE_HEAD) {
+    audioScheduleEnd = now + AUDIO_SCHEDULE_OFFSET
+  }
+  const scheduledTime = Math.max(now + AUDIO_SCHEDULE_OFFSET, audioScheduleEnd)
   source.start(scheduledTime)
-  audioStartTime = scheduledTime + buffer.duration
+  audioScheduleEnd = scheduledTime + buffer.duration
 }
 
 function audioSample(lo: number, hi: number) {
@@ -710,6 +718,7 @@ function resizeCanvas() {
   cvs.width = session.value.width
   cvs.height = session.value.height
 }
+
 
 // ------------------------------------------------------------------ #
 // Touch / pointer
