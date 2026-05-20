@@ -7,7 +7,8 @@
         "audioSource": "output",
         "quality": "1080",
         "bitrate": 10,
-        "fpsLimit": 120
+        "fpsLimit": 120,
+        "aspectRatio": "reset"
     },
     "keyMappingFile": "默认配置"
 }

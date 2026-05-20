@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+import math
 from .scrcpy_manager import ScrcpyManager
 from .key_mapping_executor import KeyMappingExecutor
 
@@ -150,6 +151,14 @@ class Api:
             except Exception as e:
                 self.logger.error(f'Failed to toggle maximize: {e}')
         return False
+
+    def get_screencast_ratio(self):
+        width, height = self.macro.get_screen_size()
+        width, height = int(width), int(height)
+        gcd = math.gcd(width, height)
+        width_ratio = width // gcd
+        height_ratio = height // gcd
+        return f'{width_ratio}:{height_ratio}'
 
     def open_url(self, url: str):
         try:
@@ -313,15 +322,31 @@ class Api:
     def get_android_keycode(self, key_name):
         return self.scrcpy.key_mapping_get_android_keycode(key_name)
 
+    def set_screencast_ratio(self, ratio):
+        if ratio == "reset":
+            return self.scrcpy.reset_screen_ratio()
+        elif ratio == "monitor":
+            w, h = self.macro.get_screen_size()
+            w, h = int(w), int(h)
+            gcd = math.gcd(w, h)
+            wr, hr = w // gcd, h // gcd
+            return self.scrcpy.set_screen_ratio(wr, hr)
+        elif ratio == "16:9":
+            return self.scrcpy.set_screen_ratio(16, 9)
+        else:
+            return {"ok": False, "error": f"unknown ratio: {ratio}"}
+
+
     def __dir__(self):
         return [
-            'get_app_info', 'minimize', 'close', 'toggle_maximize', 'open_url',
+            'get_app_info', 'minimize', 'close', 'toggle_maximize', 'get_screencast_ratio', 'open_url',
             'get_config_file', 'save_config_file',
             'get_macro_switch_key_name', 'get_key_name', 'get_mouse_position', 'get_pixel_color',
             'get_macro_files', 'load_macrofile', 'save_macrofile',
             'create_new_file', 'rename_file', 'open_folder', 'delete_file',
             'get_memory_logs', 'get_memory_logs_count', 'get_memory_logs_since', 'clear_memory_logs', 'has_new_error', 'clear_new_error_flag',
             'disable_json_editor', 'enable_json_editor', 'save_json_file',
+            'set_screencast_ratio',
             'toggle_screencast_fullscreen',
             'scrcpy_start', 'scrcpy_stop', 'scrcpy_status', 'scrcpy_poll_events',
             'scrcpy_send_touch', 'scrcpy_send_keycode', 'scrcpy_set_clipboard',

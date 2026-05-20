@@ -16,6 +16,7 @@ const audioSource = ref<'output' | 'mic' | 'none'>('output')
 const quality = ref<'480' | '720' | '1080' | '1440' | '2160' | 'unlimited'>('unlimited')
 const bitrate = ref(8)
 const fpsLimit = ref(60)
+const aspectRatio = ref<"16:9" | "monitor" | "reset">("reset")
 
 
 const isOnlyControlMode = computed(() => {
@@ -65,6 +66,7 @@ async function saveScreencastConfig() {
       quality: quality.value,
       bitrate: bitrate.value,
       fpsLimit: fpsLimit.value,
+      aspectRatio: aspectRatio.value,
     }
     await (window as any).pywebview.api.save_config_file(config)
   } catch (e) {
@@ -133,6 +135,19 @@ function selectBitrate(b: number) {
   if (!shouldDisableVideoSettings.value) {
     bitrate.value = b
     saveScreencastConfig()
+  }
+}
+
+async function selectAspectRatio(ratio: "16:9" | "monitor" | "reset") {
+  aspectRatio.value = ratio
+  saveScreencastConfig()
+  try {
+    const result = await (window as any).pywebview.api.set_screencast_ratio(ratio)
+    if (result && !result.ok) {
+      console.error("应用屏幕比例失败:", result.error)
+    }
+  } catch (e) {
+    console.error("调用屏幕比例API失败:", e)
   }
 }
 
@@ -272,6 +287,40 @@ function selectFps(fps: number) {
             @click="selectAudioSource('none')"
           >
             不传输音频
+          </button>
+        </div>
+      </div>
+
+      <!-- 适配比例 -->
+      <div class="setting-card">
+        <div class="card-header">
+          <svg viewBox="0 0 1024 1024" width="22" height="22">
+            <rect x="192" y="128" width="640" height="768" rx="48" stroke="currentColor" stroke-width="64" fill="none"/>
+            <text x="512" y="660" font-size="400" font-weight="bold" text-anchor="middle" fill="currentColor">:</text>
+          </svg>
+          <span class="card-title">适配比例</span>
+        </div>
+        <div class="option-group">
+          <button
+            class="option-btn"
+            :class="{ active: aspectRatio === '16:9' }"
+            @click="selectAspectRatio('16:9')"
+          >
+            16 : 9
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: aspectRatio === 'monitor' }"
+            @click="selectAspectRatio('monitor')"
+          >
+            显示器
+          </button>
+          <button
+            class="option-btn"
+            :class="{ active: aspectRatio === 'reset' }"
+            @click="selectAspectRatio('reset')"
+          >
+            恢复默认
           </button>
         </div>
       </div>

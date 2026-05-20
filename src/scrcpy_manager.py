@@ -144,6 +144,7 @@ class ScrcpyManager:
         self._launcher: AdbServerLauncher | None = None
         self._address: str | None = None
         self._pointer_manager = PointerManager()
+        self._serial: str | None = None
 
     # ------------------------------------------------------------------ #
     # Public API (called from pywebview thread)
@@ -564,4 +565,72 @@ class ScrcpyManager:
         px = max(0, min(sw, int(last["x"] * sw)))
         py = max(0, min(sh, int(last["y"] * sh)))
         await self._client.control.send_touch(1, px, py, sw, sh, pointer_id=123)
+
+    # ------------------------------------------------------------------ #
+    # Screen ratio management (adb shell wm size)
+    # ------------------------------------------------------------------ #
+
+    def set_screen_ratio(self, width_ratio: int, height_ratio: int) -> dict:
+        return self._submit(self._set_screen_ratio(width_ratio, height_ratio))
+
+    def reset_screen_ratio(self) -> dict:
+        return self._submit(self._reset_screen_ratio())
+
+    def _ensure_launcher(self) -> AdbServerLauncher:
+        if self._launcher is None:
+            self._launcher = AdbServerLauncher(
+                adb_path=self.PLUGIN_DIR / "adb.exe",
+                server_path=self.PLUGIN_DIR / "scrcpy-server",
+                serial=self._serial,
+            )
+        return self._launcher
+
+    async def _get_device_screen_size_via_adb(self):
+        launcher = self._ensure_launcher()
+        try:
+            output = await launcher.shell_output("wm", "size")
+            for line in output.splitlines():
+                if "Physical size:" in line or "Override size:" in line:
+                    size_str = line.split(":", 1)[-1].strip()
+                    w_str, h_str = size_str.split("x", 1)
+                    return int(w_str.strip()), int(h_str.strip())
+            return None
+        except Exception:
+            return None
+
+    async def _set_screen_ratio(self, width_ratio, height_ratio):
+        if self._last_session:
+            device_w, device_h = self._last_session
+        else:
+            sz = await self._get_device_screen_size_via_adb()
+            if sz is None:
+                return {"ok": False, "error": "cannot determine device screen size"}
+            device_w, device_h = sz
+
+        h = min(device_w, device_h)
+        w = h * width_ratio // height_ratio
+
+        if h > device_h or w > device_w:
+            w = max(device_w, device_h)
+            h = w * height_ratio // width_ratio
+
+        launcher = self._ensure_launcher()
+        try:
+            output = await launcher.shell_output("wm", "size", f"{h}x{w}")
+            return {
+                "ok": True,
+                "output": output.strip(),
+                "size": f"{h}x{w}",
+                "ratio": f"{width_ratio}:{height_ratio}",
+            }
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    async def _reset_screen_ratio(self):
+        launcher = self._ensure_launcher()
+        try:
+            output = await launcher.shell_output("wm", "size", "reset")
+            return {"ok": True, "output": output.strip()}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
