@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="screencast-viewer" :class="{ 'fullscreen-mode': isFullscreen }" :data-theme="currentTheme" @keydown="handleKeydown">
     <div v-if="!isFullscreen" class="viewer-sidebar">
       <button class="stop-btn" @click="handleStop">
@@ -22,8 +22,6 @@
         <ScreenCastKeyMapping
           v-if="showKeyMapping"
           :screen-style="screenStyle"
-          :session-width="session.width"
-          :session-height="session.height"
           :current-theme="currentTheme"
           :is-fullscreen="isFullscreen"
           @close="closeKeyMapping"

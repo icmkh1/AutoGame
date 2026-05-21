@@ -1,4 +1,4 @@
-/* ================================================================ */
+﻿/* ================================================================ */
 /* Key Mapping Overlay
 /* ================================================================ */
 
@@ -221,13 +221,17 @@
 }
 
 .km-files {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 200px;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-
+.km-files::-webkit-scrollbar {
+  display: none;
+}
 .km-file-item {
   display: flex;
   align-items: center;
@@ -304,7 +308,7 @@
 }
 
 .km-actions {
-  margin-top: auto;
+
   display: flex;
   gap: 8px;
 }
@@ -376,4 +380,84 @@
 .swipe-preview.saved-swipe polyline {
   stroke: #34D399;
   stroke-dasharray: 4 4;
+}
+
+/* ---- Orientation Scale Controls ---- */
+.km-scale-section {
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+
+}
+
+.km-scale-title {
+  color: #e0e0e0;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.km-scale-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.km-scale-row:last-child {
+  margin-bottom: 0;
+}
+
+.km-scale-label {
+  color: #999;
+  font-size: 12px;
+  min-width: 28px;
+  transition: color 0.2s;
+}
+
+.km-scale-label {
+  color: #60A5FA;
+  font-weight: 600;
+}
+
+.km-scale-row input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.km-scale-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #60A5FA;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.km-scale-row input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.km-scale-row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #60A5FA;
+  border: none;
+  cursor: pointer;
+}
+
+.km-scale-value {
+  color: #e0e0e0;
+  font-size: 12px;
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }

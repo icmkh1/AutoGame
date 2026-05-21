@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div
     class="key-mapping-overlay"
     @mousedown.left="onOverlayMouseDown"
@@ -38,7 +38,7 @@
           <div class="resize-handle tr" :style="resizeHandleStyle(dpad, 'tr')" @mousedown.stop="startDpadResize($event, dpad)"></div>
           <div class="resize-handle bl" :style="resizeHandleStyle(dpad, 'bl')" @mousedown.stop="startDpadResize($event, dpad)"></div>
           <div class="resize-handle tl" :style="resizeHandleStyle(dpad, 'tl')" @mousedown.stop="startDpadResize($event, dpad)"></div>
-          <button class="control-close" @click.stop="removeControl(dpad.id)" :style="{ ...controlCloseStyle(dpad), position: 'absolute', zIndex: 10 }">&times;</button>
+          <button class="control-close" @click.stop="removeControl(dpad.id)" :style="{ ...controlCloseStyle(dpad, true), position: 'absolute', zIndex: 10 }">&times;</button>
         </div>
         <!-- Swipe controls -->
         <div v-for="swp in swipes" :key="swp.id"
@@ -69,7 +69,7 @@
       <div @click="startSwipeRecording">滑动键位</div>
     </div>
   </div>
-  
+
   <Teleport to=".km-sidebar-target"><div v-if="!isFullscreen" class="key-mapping-sidebar">
     <div class="km-file-header">
       <span>键位文件</span>
@@ -92,6 +92,19 @@
         </template>
       </div>
     </div>
+    <div class="km-scale-section">
+      <div class="km-scale-title">按钮大小</div>
+      <div class="km-scale-row">
+        <span class="km-scale-label" :class="{ active: isLandscape }">横屏</span>
+        <input type="range" min="50" max="300" :value="scaleLandscape" @input="scaleLandscape = Number(($event.target as HTMLInputElement).value); autoSave()" />
+        <span class="km-scale-value">{{ scaleLandscape }}%</span>
+      </div>
+      <div class="km-scale-row">
+        <span class="km-scale-label" :class="{ active: !isLandscape }">竖屏</span>
+        <input type="range" min="50" max="300" :value="scalePortrait" @input="scalePortrait = Number(($event.target as HTMLInputElement).value); autoSave()" />
+        <span class="km-scale-value">{{ scalePortrait }}%</span>
+      </div>
+    </div>
     <div class="km-actions">
       <button class="km-btn close" @click="closeKeyMapping">关闭</button>
     </div>
@@ -101,14 +114,12 @@
 
 </template>
 <script setup lang="ts">
-import { ref, nextTick, onMounted, onBeforeUnmount } from "vue"
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from "vue"
 import "./ScreenCastKeyMapping.css"
 import { callApi } from "../composables/useScreencastApi"
 
 const props = defineProps<{
   screenStyle: Record<string, string>
-  sessionWidth: number
-  sessionHeight: number
   currentTheme: string
   isFullscreen: boolean
 }>()
@@ -165,6 +176,10 @@ const renameInput = ref("")
 const renameInputRef = ref<HTMLInputElement | null>(null)
 const kmCanvasRef = ref<HTMLElement | null>(null)
 
+const scaleLandscape = ref(100)  // 横屏缩放百分比
+const scalePortrait = ref(200)   // 竖屏缩放百分比（默认大60%）
+
+
 let dragTarget: any = null
 let dragOffsetX = 0
 let dragOffsetY = 0
@@ -173,6 +188,10 @@ let resizeStartSize = 0
 let resizeStartMouse = { x: 0, y: 0 }
 let autoSaveTimer = 0
 let keyPollTimer: number | null = null
+
+const isLandscape = computed(() => kmCanvasWidth.value > kmCanvasHeight.value)
+const orientationScale = computed(() => (isLandscape.value ? scaleLandscape.value : scalePortrait.value) / 100)
+
 let kmResizeObserver: ResizeObserver | null = null
 
 function updateKmCanvasSize() {
@@ -194,37 +213,34 @@ function toNormalizedCoords(clientX: number, clientY: number) {
 
 function ctrlStyle(item: any, isDpad = false) {
   if (!kmCanvasRef.value) return {}
-  const rect = kmCanvasRef.value.getBoundingClientRect()
-  const pw = rect.width, ph = rect.height
+  const pw = kmCanvasWidth.value, ph = kmCanvasHeight.value
+  const canvasSize = Math.max(pw, ph)
   if (pw <= 0 || ph <= 0) return {}
   if (isDpad) {
-    const s = (item.size || 0.06) * pw
+    const s = (item.size || 0.06) * canvasSize
     return { left: (item.x*pw)+"px", top: (item.y*ph)+"px", width: s+"px", height: s+"px" }
   }
-  const sw = props.sessionWidth || 1920
-  const r = (item.radius || 25) * (pw/sw)
+  const r = canvasSize * (item.radius || 25) / 1000 * orientationScale.value
   const fontSize = r * 0.5
   return { left: (item.x*pw)+"px", top: (item.y*ph)+"px", width: (r*2)+"px", height: (r*2)+"px", fontSize: fontSize+"px" }
 }
 
 function ctrlLabelStyle(item: any) {
   if (!kmCanvasRef.value) return {}
-  const rect = kmCanvasRef.value.getBoundingClientRect()
-  const pw = rect.width
+  const pw = kmCanvasWidth.value, ph = kmCanvasHeight.value
+  const canvasSize = Math.max(pw, ph)
   if (pw <= 0) return {}
-  const sw = props.sessionWidth || 1920
-  const r = (item.radius || 25) * (pw/sw)
+  const r = canvasSize * (item.radius || 25) / 1000 * orientationScale.value
   const fontSize = r * 0.6
   return { fontSize: fontSize+"px" }
 }
 
-function controlCloseStyle(item: any) {
+function controlCloseStyle(item: any, isDpad = false) {
   if (!kmCanvasRef.value) return {}
-  const rect = kmCanvasRef.value.getBoundingClientRect()
-  const pw = rect.width
+  const pw = kmCanvasWidth.value, ph = kmCanvasHeight.value
+  const canvasSize = Math.max(pw, ph)
   if (pw <= 0) return {}
-  const sw = props.sessionWidth || 1920
-  const r = (item.radius || 25) * (pw/sw)
+  const r = canvasSize * (item.radius || 25) / 1000 * (isDpad ? 1 : orientationScale.value)
   const btnSize = r * 0.9
   const fontSize = btnSize * 0.9
   return {
@@ -238,10 +254,10 @@ function controlCloseStyle(item: any) {
 
 function getDpadKeyStyle(dpad: any, dir: string) {
   if (!kmCanvasRef.value) return {}
-  const rect = kmCanvasRef.value.getBoundingClientRect()
-  const pw = rect.width
+  const pw = kmCanvasWidth.value, ph = kmCanvasHeight.value
+  const canvasSize = Math.max(pw, ph)
   if (pw <= 0) return {}
-  const s = (dpad.size || 0.06) * pw, r = s/2, o = r*0.6
+  const s = (dpad.size || 0.06) * canvasSize, r = s/2, o = r*0.6
   const keySize = r * 0.4
   const fontSize = keySize * 0.55
   const angles: Record<string, number> = {up:-90,down:90,left:180,right:0}
@@ -251,10 +267,10 @@ function getDpadKeyStyle(dpad: any, dir: string) {
 
 function resizeHandleStyle(item: any, position: string) {
   if (!kmCanvasRef.value) return {}
-  const rect = kmCanvasRef.value.getBoundingClientRect()
-  const pw = rect.width
+  const pw = kmCanvasWidth.value, ph = kmCanvasHeight.value
+  const canvasSize = Math.max(pw, ph)
   if (pw <= 0) return {}
-  const s = (item.size || 0.06) * pw
+  const s = (item.size || 0.06) * canvasSize
   const handleSize = Math.max(10, s * 0.08)
   const offset = -handleSize / 2
   const styles: Record<string, string> = {
@@ -319,8 +335,10 @@ async function switchFile(name: string, skipSave = false) {
       controls.value = (data.controls || []).map((c: any) => ({ ...c }))
       dpads.value = (data.dpad || []).map((d: any) => ({ ...d }))
       swipes.value = (data.swipes || []).map((s: any) => ({ ...s }))
+      scaleLandscape.value = data.scaleLandscape ?? 100
+      scalePortrait.value = data.scalePortrait ?? 200
     } else {
-      controls.value = []; dpads.value = []; swipes.value = []
+      controls.value = []; dpads.value = []; swipes.value = []; scaleLandscape.value = 100; scalePortrait.value = 200
     }
     await callApi("apply_key_mapping", name)
     await saveSelectedKeyMappingFile(name)
@@ -336,6 +354,8 @@ async function saveCurrentMapping() {
   const data = {
     version: 1,
     name: currentFile.value,
+    scaleLandscape: scaleLandscape.value,
+    scalePortrait: scalePortrait.value,
     controls: controls.value.map((c: any) => ({ id: c.id, type: "single", key: c.key, label: c.label, x: c.x, y: c.y, radius: c.radius })),
     dpad: dpads.value.map((d: any) => ({ id: d.id, type: "dpad", x: d.x, y: d.y, size: d.size, keys: d.keys })),
     swipes: swipes.value.map((s: any) => ({ id: s.id, type: "swipe", label: s.label, key: s.key || "", x: s.x, y: s.y, radius: s.radius, path: s.path })),
@@ -407,7 +427,7 @@ function createDirectionKey() {
   contextMenu.value.show = false
   if (!kmCanvasRef.value) return
   const norm = toNormalizedCoords(contextMenu.value.x, contextMenu.value.y)
-  const sizeNorm = 60 / (props.sessionWidth || 1920)
+  const sizeNorm = 0.06
   dpads.value.push({
     id: controlId("dpad"), x: norm.x, y: norm.y, size: sizeNorm,
     keys: { up: { key: "W", label: "W" }, down: { key: "S", label: "S" }, left: { key: "A", label: "A" }, right: { key: "D", label: "D" } }
@@ -479,7 +499,7 @@ function onResizeMouseMove(e: MouseEvent) {
   const dx = (e.clientX - resizeStartMouse.x) / rect.width
   const dy = (e.clientY - resizeStartMouse.y) / rect.height
   const delta = Math.max(Math.abs(dx), Math.abs(dy)) * (dx + dy >= 0 ? 1 : -1)
-  const minSize = 15 / (props.sessionWidth || 1920)
+  const minSize = 15 / Math.max(rect.width, rect.height)
   resizeTarget.size = Math.max(minSize, Math.min(0.5, resizeStartSize + delta))
 }
 
