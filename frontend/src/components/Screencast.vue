@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed, inject, onMounted, type Ref } from 'vue'
 
 type Theme = 'light' | 'dark'
@@ -13,7 +13,7 @@ const connectionMode = ref<'usb' | 'wireless' | 'control_only' | null>(null)
 
 const videoSource = ref<'display' | 'camera' | 'none'>('display')
 const audioSource = ref<'output' | 'mic' | 'none'>('output')
-const quality = ref<'480' | '720' | '1080' | '1440' | '2160' | 'unlimited'>('unlimited')
+const quality = ref<'1280' | '1920' | '2560' | '3840' | 'unlimited'>('unlimited')
 const bitrate = ref(8)
 const fpsLimit = ref(60)
 const aspectRatio = ref<"16:9" | "monitor" | "reset">("reset")
@@ -38,7 +38,7 @@ async function loadScreencastConfig() {
       if (sc.audioSource && ['output', 'mic', 'none'].includes(sc.audioSource)) {
         audioSource.value = sc.audioSource
       }
-      if (sc.quality && ['480', '720', '1080', '1440', '2160', 'unlimited'].includes(sc.quality)) {
+      if (sc.quality && ['1280', '1920', '2560', '3840', 'unlimited'].includes(sc.quality)) {
         quality.value = sc.quality
       }
       if (sc.bitrate !== undefined && typeof sc.bitrate === 'number' && sc.bitrate >= 1 && sc.bitrate <= 100) {
@@ -124,7 +124,7 @@ function selectAudioSource(source: 'output' | 'mic' | 'none') {
   saveScreencastConfig()
 }
 
-function selectQuality(q: '480' | '720' | '1080' | '1440' | '2160' | 'unlimited') {
+function selectQuality(q: '1280' | '1920' | '2560' | '3840' | 'unlimited') {
   if (!shouldDisableVideoSettings.value) {
     quality.value = q
     saveScreencastConfig()
@@ -325,55 +325,47 @@ function selectFps(fps: number) {
         </div>
       </div>
 
-      <!-- 画质 -->
+      <!-- 分辨率 -->
       <div class="setting-card">
         <div class="card-header">
           <svg viewBox="0 0 1024 1024" width="22" height="22">
             <rect x="16" y="32" width="992" height="832" rx="64" stroke="currentColor" stroke-width="64" fill="none"/>
             <text x="512" y="590" font-size="480" font-weight="bold" text-anchor="middle" fill="currentColor">HD</text>
           </svg>
-          <span class="card-title">画质</span>
+          <span class="card-title">分辨率</span>
         </div>
         <div class="option-group">
           <button
             class="option-btn"
-            :class="{ active: quality === '480', disabled: shouldDisableVideoSettings }"
-            @click="selectQuality('480')"
+            :class="{ active: quality === '1280', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('1280')"
             :disabled="shouldDisableVideoSettings"
           >
-            480P
+            1280
           </button>
           <button
             class="option-btn"
-            :class="{ active: quality === '720', disabled: shouldDisableVideoSettings }"
-            @click="selectQuality('720')"
+            :class="{ active: quality === '1920', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('1920')"
             :disabled="shouldDisableVideoSettings"
           >
-            720P
+            1920
           </button>
           <button
             class="option-btn"
-            :class="{ active: quality === '1080', disabled: shouldDisableVideoSettings }"
-            @click="selectQuality('1080')"
+            :class="{ active: quality === '2560', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('2560')"
             :disabled="shouldDisableVideoSettings"
           >
-            1080P
+            2560
           </button>
           <button
             class="option-btn"
-            :class="{ active: quality === '1440', disabled: shouldDisableVideoSettings }"
-            @click="selectQuality('1440')"
+            :class="{ active: quality === '3840', disabled: shouldDisableVideoSettings }"
+            @click="selectQuality('3840')"
             :disabled="shouldDisableVideoSettings"
           >
-            1440P
-          </button>
-          <button
-            class="option-btn"
-            :class="{ active: quality === '2160', disabled: shouldDisableVideoSettings }"
-            @click="selectQuality('2160')"
-            :disabled="shouldDisableVideoSettings"
-          >
-            2160P
+            3840
           </button>
           <button
             class="option-btn"
