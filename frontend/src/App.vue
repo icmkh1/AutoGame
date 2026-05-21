@@ -1,11 +1,11 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, onMounted, onUnmounted, provide } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import Filelist from './components/Filelist.vue'
 import Settings from './components/Settings.vue'
 import Logeditor from './components/Logeditor.vue'
 import Screencast from './components/Screencast.vue'
-import ScreenCastView from './components/ScreenCastView.vue'
+import ScreenCastCore from './components/ScreenCastCore.vue'
 import './App.css'
 
 type Theme = 'light' | 'dark'
@@ -265,7 +265,7 @@ provide('appInfo', appInfo)
             @updateFileName="keymouseSubView.fileName = $event"
             @updateContent="keymouseSubView.content = $event"
           />
-          <ScreenCastView
+          <ScreenCastCore
             ref="screenCastViewRef"
             v-else-if="screencastMode"
             :connectionMode="screencastMode"
