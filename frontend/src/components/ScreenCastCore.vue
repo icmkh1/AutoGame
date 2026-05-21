@@ -441,8 +441,6 @@ onMounted(async () => {
   window.addEventListener('focus', handleFocus)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('keyup', handleKeyup)
-  window.addEventListener('mousedown', handleMouseDown)
-  window.addEventListener('mouseup', handleMouseUp)
   await nextTick()
   await startConnection()
 })
@@ -454,8 +452,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('focus', handleFocus)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keyup', handleKeyup)
-  window.removeEventListener('mousedown', handleMouseDown)
-  window.removeEventListener('mouseup', handleMouseUp)
   stopConnection()
 })
 
@@ -475,13 +471,6 @@ function handleKeydown(event: KeyboardEvent) {
 
 function handleKeyup(_event: KeyboardEvent) {
 }
-
-function handleMouseDown(_event: MouseEvent) {
-}
-
-function handleMouseUp(_event: MouseEvent) {
-}
-
 defineExpose({
   toggleScrcpyFullscreen
 })
