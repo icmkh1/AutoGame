@@ -323,14 +323,14 @@ class Macro:
                     for data in self.macro_file:
                         if '名称' not in data:
                             continue
-                        elif data['名称'] == action_list[0]:
+                        elif data['名称'] == action_list[0] and data['功能类型'] in self.function_names:
                             function = self.function_mapping_down.get(
                                 data['功能类型'],
                                 lambda _: self.logger.error(f'功能 {data["功能类型"]} 不存在')
                             )
                             break
                     if function:
-                        function(data)
+                        Thread(target=function, args=(data,)).start()
                     else:
                         self._raise_error(f'单击指令参数错误：{action_list}')
             return True
