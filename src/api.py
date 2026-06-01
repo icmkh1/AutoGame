@@ -14,7 +14,7 @@ class Api:
         self.file_manager = file_manager
         self._no_key_names = ['MLeft', 'MRight', 'Middle', 'MSide1', 'MSide2']
 
-        self.client_size = None
+        self.window_h = None
         self._window = None
         self._maximized = False
         self.scrcpy = ScrcpyManager()
@@ -138,7 +138,7 @@ class Api:
 
     def toggle_maximize(self):
         self.logger.info('Toggle maximize called')
-        self.client_size = None
+        self.window_h = None
         if self._window:
             try:
                 if self._maximized:
@@ -341,13 +341,14 @@ class Api:
 
     def reset_mouse_to_center(self):
         """将鼠标重置到窗口中心位置"""
+        print("reset_mouse_to_center")
         try:
-            if self.client_size is None:
+            if self.window_h is None:
                 self.window_h = Window(title_name="AutoGame")
-                self.client_size = [i // 2 for i in self.window_h.client_size]
-            self.window_h.send_mouse_move(self.client_size[0], self.client_size[1], duration=0, mode="global")
+            client_size = [i // 2 for i in self.window_h.client_size]
+            self.window_h.send_mouse_move(client_size[0], client_size[1], duration=0, mode="global")
 
-            return {'ok': True, 'x': self.client_size[0], 'y': self.client_size[1]}
+            return {'ok': True, 'x': client_size[0], 'y': client_size[1]}
         except Exception as e:
             return {'ok': False, 'error': str(e)}
 
