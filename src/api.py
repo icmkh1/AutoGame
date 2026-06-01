@@ -268,6 +268,28 @@ class Api:
 
 
     # ------------------------------------------------------------------ #
+    # Camera mode (3D view control) API
+    # ------------------------------------------------------------------ #
+
+    def camera_mode_enter(self):
+        """前端通知：启动相机模式。"""
+        config = self.key_mapping_executor.get_camera_config()
+        if config and not self.key_mapping_executor._camera_active:
+            self.key_mapping_executor._toggle_camera_mode(config)
+        return {"ok": True, "config": config}
+
+    def camera_mode_exit(self):
+        """前端通知：退出相机模式。"""
+        if self.key_mapping_executor._camera_active:
+            self.key_mapping_executor._camera_active = False
+            if self.scrcpy._last_session:
+                sw, sh = self.scrcpy._last_session
+                cx = int(self.key_mapping_executor._camera_center[0] * sw)
+                cy = int(self.key_mapping_executor._camera_center[1] * sh)
+                self.scrcpy.send_touch(1, cx, cy, sw, sh)
+        return {"ok": True}
+
+    # ------------------------------------------------------------------ #
     # Key mapping API
     # ------------------------------------------------------------------ #
 

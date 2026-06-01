@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-import time
 
 
 class KeyMappingExecutor:
@@ -15,9 +14,10 @@ class KeyMappingExecutor:
         self._enabled_before_focus = False
         self._down_state_keys: dict[str, tuple[int, float, float]] = {}  # single-control key -> (pointer_id, x, y)
         self._dpad_states: dict[int, dict] = {}  # dpad index -> {pressed: set[str], pid: int|None, ex: float, ey: float}
-        self._camera_active = False  # 3D视角模式是否激活
+        self._camera_active = False  # 3D视角模式是否激�?
         self._camera_config = None   # 当前相机控件配置
         self._camera_center = (0.5, 0.5)
+        self._use_pointer_lock = False
 
     _DIR_VECTORS = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
     _OPPOSITE_DIRS = {"up": "down", "down": "up", "left": "right", "right": "left"}
@@ -25,6 +25,8 @@ class KeyMappingExecutor:
     def apply(self, mapping_data):
         self._active_mapping = mapping_data
         self._enabled = True
+        camera_items = mapping_data.get("camera", [])
+        self._use_pointer_lock = len(camera_items) > 0
 
     def remove(self):
         self.reset()
@@ -59,13 +61,38 @@ class KeyMappingExecutor:
                 keys.add(k)
         return keys
 
+    def get_camera_config(self):
+        if not self._active_mapping:
+            return None
+        for cam in self._active_mapping.get("camera", []):
+            if cam.get("key"):
+                return {"key": cam.get("key"), "x": cam.get("x", 0.5), "y": cam.get("y", 0.5), "sensitivity": cam.get("sensitivity", 0.005)}
+        return None
+
     @staticmethod
-    def _resolve_edge(pressed_keys, key_to_dir, cx, cy, radius):
-        """Resolve the edge position from a set of pressed dpad keys."""
+    def _resolve_edge(pressed_keys, key_to_dir, cx, cy, radius, sw=None, sh=None):
+        """Resolve the edge position from a set of pressed dpad keys.
+
+        When *sw* and *sh* (screen pixel dimensions) are provided the direction
+        is normalised in pixel-weighted space, so diagonal directions land at the
+        correct angle regardless of the screen aspect ratio.
+        """
         if not pressed_keys:
             return None
         dx = sum(KeyMappingExecutor._DIR_VECTORS[key_to_dir[k]][0] for k in pressed_keys if k in key_to_dir)
         dy = sum(KeyMappingExecutor._DIR_VECTORS[key_to_dir[k]][1] for k in pressed_keys if k in key_to_dir)
+
+        if sw is not None and sh is not None and sw > 0 and sh > 0 and dx != 0 and dy != 0:
+            # Aspect-ratio-aware normalisation: weight components by inverse screen
+            # dimensions so the touch position has the correct angle in pixel space.
+            dx_w = dx / sw
+            dy_w = dy / sh
+            length_w = math.sqrt(dx_w * dx_w + dy_w * dy_w)
+            if length_w == 0:
+                return None
+            return (cx + dx_w / length_w * radius, cy + dy_w / length_w * radius)
+
+        # Fallback: pure unit-vector normalisation (cardinal-only or missing dims)
         length = math.sqrt(dx * dx + dy * dy)
         if length == 0:
             return None
@@ -125,6 +152,9 @@ class KeyMappingExecutor:
             cy = dpad.get("y", 0.5)
             radius = dpad.get("size", 0.06)  # full radius to circle edge
 
+            # Get screen dimensions for aspect-ratio-aware diagonal normalisation
+            _sw, _sh = self.scrcpy._last_session if self.scrcpy._last_session else (None, None)
+
             # Initialize state for this dpad
             if dpad_idx not in self._dpad_states:
                 self._dpad_states[dpad_idx] = {"pressed": set(), "pid": None, "ex": 0.0, "ey": 0.0}
@@ -147,7 +177,7 @@ class KeyMappingExecutor:
                     to_remove = opp_key
 
             # Compute old edge position
-            old_edge = self._resolve_edge(old_pressed, key_to_dir, cx, cy, radius)
+            old_edge = self._resolve_edge(old_pressed, key_to_dir, cx, cy, radius, _sw, _sh)
 
             # Build new pressed set
             new_pressed = set(old_pressed)
@@ -156,17 +186,17 @@ class KeyMappingExecutor:
             new_pressed.add(key_name)
             state["pressed"] = new_pressed
 
-            new_edge = self._resolve_edge(new_pressed, key_to_dir, cx, cy, radius)
+            new_edge = self._resolve_edge(new_pressed, key_to_dir, cx, cy, radius, _sw, _sh)
 
             if new_edge is None:
-                # All directions canceled out — release
+                # All directions canceled out �?release
                 if state["pid"] is not None:
                     self.scrcpy.send_normalized_touch(1, state["ex"], state["ey"], pointer_id=state["pid"])
                     state["pid"] = None
                 return True
 
             if old_edge is None:
-                # No previous touch — start fresh from center
+                # No previous touch �?start fresh from center
                 resp = self.scrcpy.send_normalized_touch(0, cx, cy)
                 if resp.get("ok"):
                     pid = resp.get("pointer_id")
@@ -176,7 +206,7 @@ class KeyMappingExecutor:
                         state["ex"], state["ey"] = new_edge
                 return True
 
-            # Both old and new exist → decide restart or move
+            # Both old and new exist �?decide restart or move
             ox, oy = old_edge
             nx, ny = new_edge
             old_len = math.sqrt((ox - cx) ** 2 + (oy - cy) ** 2)
@@ -187,7 +217,7 @@ class KeyMappingExecutor:
                 dot = 1.0
 
             if dot < 0:
-                # Opposite direction → restart touch at center
+                # Opposite direction �?restart touch at center
                 self.scrcpy.send_normalized_touch(1, state["ex"], state["ey"], pointer_id=state["pid"])
                 resp = self.scrcpy.send_normalized_touch(0, cx, cy)
                 if resp.get("ok"):
@@ -197,7 +227,7 @@ class KeyMappingExecutor:
                         state["pid"] = pid
                         state["ex"], state["ey"] = nx, ny
             else:
-                # Same general direction → just move touch
+                # Same general direction �?just move touch
                 self.scrcpy.send_normalized_touch(2, nx, ny, pointer_id=state["pid"])
                 state["ex"], state["ey"] = nx, ny
 
@@ -237,7 +267,7 @@ class KeyMappingExecutor:
             state["pressed"].discard(key_name)
 
             if not state["pressed"]:
-                # No more keys — release touch
+                # No more keys �?release touch
                 if state["pid"] is not None:
                     self.scrcpy.send_normalized_touch(1, state["ex"], state["ey"], pointer_id=state["pid"])
                     state["pid"] = None
@@ -246,7 +276,7 @@ class KeyMappingExecutor:
                 cx = dpad.get("x", 0.5)
                 cy = dpad.get("y", 0.5)
                 radius = dpad.get("size", 0.06)
-                new_edge = self._resolve_edge(state["pressed"], key_to_dir, cx, cy, radius)
+                new_edge = self._resolve_edge(state["pressed"], key_to_dir, cx, cy, radius, self.scrcpy._last_session[0] if self.scrcpy._last_session else None, self.scrcpy._last_session[1] if self.scrcpy._last_session else None)
                 if new_edge is not None and state["pid"] is not None:
                     self.scrcpy.send_normalized_touch(2, new_edge[0], new_edge[1], pointer_id=state["pid"])
                     state["ex"], state["ey"] = new_edge
@@ -299,7 +329,7 @@ class KeyMappingExecutor:
                 else:
                     js_code = 'window.setCameraMode(false)'
                 self._api._window.evaluate_js(js_code)
-            except Exception as e:
+            except Exception:
                 pass
 
     def reset(self):
@@ -310,6 +340,7 @@ class KeyMappingExecutor:
         self._camera_active = False
         self._camera_config = None
         self._camera_center = (0.5, 0.5)
+        self._use_pointer_lock = False
         if self.scrcpy:
             self.scrcpy.key_mapping_reset()
 
@@ -320,3 +351,4 @@ class KeyMappingExecutor:
             self.reset()
         elif focused and not self._enabled and self._enabled_before_focus:
             self._enabled = True
+        self._use_pointer_lock = False

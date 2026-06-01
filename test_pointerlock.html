@@ -1,0 +1,81 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Pointer Lock Test</title>
+<style>
+body { margin: 0; padding: 20px; background: #1a1a2e; color: #e0e0e0; font-family: monospace; }
+#cvs { display: block; margin: 20px auto; border: 1px solid #555; cursor: default; background: #333; width: 600px; height: 400px; }
+#status { text-align: center; font-size: 18px; margin: 10px; padding: 8px; }
+#movement { text-align: center; font-size: 16px; color: #aaa; }
+#hint { text-align: center; margin-top: 30px; color: #888; }
+.locked { background: #1b5e20 !important; }
+.error { background: #b71c1c !important; }
+</style>
+</head>
+<body>
+<h2 style="text-align:center;">==== Pointer Lock Test ====</h2>
+<canvas id="cvs" width="600" height="400"></canvas>
+<div id="status">Status: IDLE - 等待按键...</div>
+<div id="movement">movementX: 0  movementY: 0</div>
+<div id="hint">单击 canvas 使其聚焦，然后按 P 键切换 Pointer Lock</div>
+
+<script>
+const cvs = document.getElementById('cvs');
+const statusEl = document.getElementById('status');
+const movEl = document.getElementById('movement');
+const hintEl = document.getElementById('hint');
+
+function setStatus(text, isError) {
+    statusEl.textContent = text;
+    statusEl.className = '';
+    if (text.includes('LOCKED')) { statusEl.classList.add('locked'); }
+    else if (isError || text.includes('ERROR')) { statusEl.classList.add('error'); }
+}
+
+cvs.addEventListener('click', () => {
+    cvs.focus();
+    hintEl.textContent = 'Canvas 已聚焦，按 P 键切换 Pointer Lock';
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'p' || e.key === 'P') {
+        if (document.pointerLockElement === cvs) {
+            document.exitPointerLock();
+        } else {
+            setStatus('Status: REQUESTING...');
+            cvs.requestPointerLock()
+                .then(() => {
+                    setStatus('Status: LOCKED - 鼠标已锁定，移动鼠标测试');
+                })
+                .catch((err) => {
+                    setStatus('Status: ERROR - ' + err.message, true);
+                });
+        }
+    }
+});
+
+document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement === cvs) {
+        setStatus('Status: LOCKED - 鼠标已锁定，移动鼠标测试');
+        hintEl.textContent = '鼠标锁定中，按 P 键或 ESC 退出';
+    } else {
+        setStatus('Status: IDLE - 按 P 键尝试锁定');
+        hintEl.textContent = '按 P 键切换 Pointer Lock';
+    }
+});
+
+document.addEventListener('pointerlockerror', () => {
+    setStatus('Status: LOCK_ERROR - 浏览器拒绝了 Pointer Lock 请求', true);
+});
+
+document.addEventListener('mousemove', (e) => {
+    movEl.textContent = 'movementX: ' + e.movementX + '  movementY: ' + e.movementY;
+    if (document.pointerLockElement === cvs) {
+        // Also show raw values for debugging
+        hintEl.textContent = 'delta X: ' + e.movementX + '  delta Y: ' + e.movementY;
+    }
+});
+</script>
+</body>
+</html>
