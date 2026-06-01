@@ -3,6 +3,7 @@
 import subprocess
 import sys
 import math
+from autoxkit.window import Window
 from .scrcpy_manager import ScrcpyManager
 from .key_mapping_executor import KeyMappingExecutor
 
@@ -13,10 +14,11 @@ class Api:
         self.file_manager = file_manager
         self._no_key_names = ['MLeft', 'MRight', 'Middle', 'MSide1', 'MSide2']
 
+        self.client_size = None
         self._window = None
         self._maximized = False
         self.scrcpy = ScrcpyManager()
-        self.key_mapping_executor = KeyMappingExecutor(self.scrcpy)
+        self.key_mapping_executor = KeyMappingExecutor(self.scrcpy, self)
 
     def get_config_file(self):
         config = self.file_manager.load_config_file()
@@ -136,6 +138,7 @@ class Api:
 
     def toggle_maximize(self):
         self.logger.info('Toggle maximize called')
+        self.client_size = None
         if self._window:
             try:
                 if self._maximized:
@@ -336,6 +339,17 @@ class Api:
         else:
             return {"ok": False, "error": f"unknown ratio: {ratio}"}
 
+    def reset_mouse_to_center(self):
+        """将鼠标重置到窗口中心位置"""
+        try:
+            if self.client_size is None:
+                self.window_h = Window(title_name="AutoGame")
+                self.client_size = [i // 2 for i in self.window_h.client_size]
+            self.window_h.send_mouse_move(self.client_size[0], self.client_size[1], duration=0, mode="global")
+
+            return {'ok': True, 'x': self.client_size[0], 'y': self.client_size[1]}
+        except Exception as e:
+            return {'ok': False, 'error': str(e)}
 
     def __dir__(self):
         return [
@@ -370,7 +384,9 @@ class Api:
             'set_focus_state',
             'stop_key_listener',
             'get_pressed_key',
+            'reset_mouse_to_center',
         ]
+
 
 
 

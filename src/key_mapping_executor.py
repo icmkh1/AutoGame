@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import math
+import time
 
 
 class KeyMappingExecutor:
-    def __init__(self, scrcpy_manager):
+    def __init__(self, scrcpy_manager, api=None):
         self.scrcpy = scrcpy_manager
+        self._api = api
         self._active_mapping = None
         self._enabled = False
         self._enabled_before_focus = False
         self._down_state_keys: dict[str, tuple[int, float, float]] = {}  # single-control key -> (pointer_id, x, y)
         self._dpad_states: dict[int, dict] = {}  # dpad index -> {pressed: set[str], pid: int|None, ex: float, ey: float}
+        self._camera_active = False  # 3D视角模式是否激活
+        self._camera_config = None   # 当前相机控件配置
+        self._camera_center = (0.5, 0.5)
 
     _DIR_VECTORS = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
     _OPPOSITE_DIRS = {"up": "down", "down": "up", "left": "right", "right": "left"}
@@ -48,6 +53,10 @@ class KeyMappingExecutor:
                 k = info.get("key")
                 if k:
                     keys.add(k)
+        for cam in self._active_mapping.get("camera", []):
+            k = cam.get("key")
+            if k:
+                keys.add(k)
         return keys
 
     @staticmethod
@@ -69,6 +78,12 @@ class KeyMappingExecutor:
 
         if key_name in self._down_state_keys:
             return False
+
+        # Check camera controls (toggle mode)
+        for cam in self._active_mapping.get("camera", []):
+            if cam.get("key") == key_name:
+                self._toggle_camera_mode(cam)
+                return True
 
         # Check single controls
         for ctrl in self._active_mapping.get("controls", []):
@@ -240,10 +255,61 @@ class KeyMappingExecutor:
 
         return False
 
+    def _toggle_camera_mode(self, config):
+        """Toggle camera mode (3D view control)."""
+        if self._camera_active:
+            # Exit camera mode
+            self._camera_active = False
+
+            # Release touch using send_touch (same as onPointer)
+            if self.scrcpy._last_session:
+                sw, sh = self.scrcpy._last_session
+                px = int(self._camera_center[0] * sw)
+                py = int(self._camera_center[1] * sh)
+                self.scrcpy.send_touch(1, px, py, sw, sh)
+
+            # Notify frontend to exit camera mode
+            self._notify_camera_mode_change(False, None)
+        else:
+            # Enter camera mode
+            self._camera_active = True
+            self._camera_config = config
+            self._camera_center = (config.get('x', 0.5), config.get('y', 0.5))
+
+            # Send initial touch (ACTION_DOWN = 0) using send_touch (same as onPointer)
+            if self.scrcpy._last_session:
+                sw, sh = self.scrcpy._last_session
+                px = int(self._camera_center[0] * sw)
+                py = int(self._camera_center[1] * sh)
+                self.scrcpy.send_touch(0, px, py, sw, sh)
+
+            # Notify frontend to enter camera mode
+            self._notify_camera_mode_change(True, {
+                'sensitivity': config.get('sensitivity', 0.001),
+                'center': self._camera_center
+            })
+
+    def _notify_camera_mode_change(self, active, data):
+        """Notify frontend about camera mode state change."""
+        # Call frontend function via webview through API
+        if self._api and hasattr(self._api, '_window') and self._api._window:
+            try:
+                if active and data:
+                    js_code = f'window.setCameraMode(true, {{"x": {data["center"][0]}, "y": {data["center"][1]}, "sensitivity": {data["sensitivity"]}}})'
+                else:
+                    js_code = 'window.setCameraMode(false)'
+                self._api._window.evaluate_js(js_code)
+            except Exception as e:
+                pass
+
     def reset(self):
         """Reset all active key states and release pointers."""
         self._down_state_keys.clear()
         self._dpad_states.clear()
+        # Also reset camera state
+        self._camera_active = False
+        self._camera_config = None
+        self._camera_center = (0.5, 0.5)
         if self.scrcpy:
             self.scrcpy.key_mapping_reset()
 

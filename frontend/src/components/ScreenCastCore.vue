@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="screencast-viewer" :class="{ 'fullscreen-mode': isFullscreen }" :data-theme="currentTheme" @keydown="handleKeydown">
     <div v-if="!isFullscreen" class="viewer-sidebar">
       <button class="stop-btn" @click="handleStop">
@@ -82,6 +82,10 @@ const hoveredButtons = ref<Record<string, string>>({})
 const isFullscreen = ref(false)
 const showKeyMapping = ref(false)
 const isKeyMappingActive = ref(false)
+const isCameraMode = ref(false)
+let cameraPointerId: number | null = null
+let lastCameraX = 0
+let lastCameraY = 0
 let ws: WebSocket | null = null
 let wsReconnectAttempts = 0
 const MAX_WS_RECONNECT = 3
@@ -461,6 +465,127 @@ function closeKeyMapping() {
   isKeyMappingActive.value = true
 }
 
+async function enterCameraMode(config: { x: number; y: number; sensitivity: number }) {
+  console.log('enterCameraMode called with config:', config)
+  try {
+    if (!canvas.value || !viewport.value) {
+      console.error('canvas or viewport is null')
+      return
+    }
+
+    isCameraMode.value = true
+
+    // Simulate a mousedown to get pointer ID
+    const mouseEvent = new MouseEvent('mousedown', {
+      clientX: config.x * canvas.value.getBoundingClientRect().width,
+      clientY: config.y * canvas.value.getBoundingClientRect().height,
+      bubbles: true,
+    })
+    const pointerId = canvas.value.dispatchEvent(mouseEvent) ? 1 : 1  // Default to 1 if no pointer ID available
+
+    // Wait a bit for pointer to be registered
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    // Set pointer capture
+    try {
+      cameraPointerId = pointerId
+      canvas.value.setPointerCapture(pointerId)
+    } catch (e) {
+      console.log('setPointerCapture failed, continuing anyway:', e)
+    }
+
+    // Hide cursor
+    viewport.value.style.cursor = 'none'
+
+    document.addEventListener('mousemove', onCameraMouseMove)
+    console.log('Camera mode activated')
+
+  } catch (e) {
+    console.error("Failed to enter camera mode:", e)
+  }
+}
+
+function exitCameraMode() {
+  try {
+    isCameraMode.value = false
+
+    // Release pointer capture
+    if (canvas.value && cameraPointerId !== null) {
+      try {
+        canvas.value.releasePointerCapture(cameraPointerId)
+      } catch (e) {
+        console.log('releasePointerCapture failed:', e)
+      }
+      cameraPointerId = null
+    }
+
+    // Show cursor
+    if (viewport.value) {
+      viewport.value.style.cursor = 'default'
+    }
+
+    // Send touch up at last known position
+    callApi("scrcpy_send_touch", 1, lastCameraX, lastCameraY, session.value.width, session.value.height)
+
+    document.removeEventListener('mousemove', onCameraMouseMove)
+    console.log('Camera mode deactivated')
+  } catch (e) {
+    console.error("Failed to exit camera mode:", e)
+  }
+}
+
+function onCameraMouseMove(e: MouseEvent) {
+  if (!isCameraMode.value || !canvas.value) return
+
+  // Get current canvas rect (dynamic, works in both windowed and fullscreen mode)
+  const rect = canvas.value.getBoundingClientRect()
+  const newX = Math.round(e.clientX - rect.left)
+  const newY = Math.round(e.clientY - rect.top)
+
+  // Check if mouse is at boundary
+  const atLeft = newX <= 50
+  const atRight = newX >= rect.width - 50
+  const atTop = newY <= 50
+  const atBottom = newY >= rect.height - 50
+
+  if (atLeft || atRight || atTop || atBottom) {
+    // Calculate center position
+    const centerX = Math.round(rect.width / 2)
+    const centerY = Math.round(rect.height / 2)
+
+    // Release pointer capture
+    if (cameraPointerId !== null) {
+      try {
+        canvas.value.releasePointerCapture(cameraPointerId)
+      } catch (err) {
+        console.log('releasePointerCapture failed:', err)
+      }
+    }
+
+    // Reset mouse position to center via backend
+    callApi("reset_mouse_to_center")
+
+    // Re-acquire pointer capture
+    if (cameraPointerId !== null) {
+      try {
+        canvas.value.setPointerCapture(cameraPointerId)
+      } catch (err) {
+        console.log('setPointerCapture failed:', err)
+      }
+    }
+
+    lastCameraX = centerX
+    lastCameraY = centerY
+    // Send ACTION_DOWN at center to re-establish touch
+    callApi("scrcpy_send_touch", 0, centerX, centerY, session.value.width, session.value.height)
+  } else {
+    // Send touch move
+    lastCameraX = newX
+    lastCameraY = newY
+    callApi("scrcpy_send_touch", 2, newX, newY, session.value.width, session.value.height)
+  }
+}
+
 onMounted(async () => {
   fpsTimer = window.setInterval(() => {
     fps.value = framesThisSecond
@@ -479,6 +604,10 @@ onMounted(async () => {
   window.addEventListener('focus', handleFocus)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('keyup', handleKeyup)
+
+  // Register global camera mode function for backend to call
+  ;(window as any).setCameraMode = setCameraMode
+
   await nextTick()
   await startConnection()
 })
@@ -490,6 +619,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('focus', handleFocus)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keyup', handleKeyup)
+
+  // Clean up global function
+  delete (window as any).setCameraMode
+
   stopConnection()
 })
 
@@ -509,6 +642,16 @@ function handleKeydown(event: KeyboardEvent) {
 
 function handleKeyup(_event: KeyboardEvent) {
 }
+
+function setCameraMode(active: boolean, config?: { x: number; y: number; sensitivity: number }) {
+  console.log('setCameraMode called:', active, config)
+  if (active && config) {
+    enterCameraMode(config)
+  } else {
+    exitCameraMode()
+  }
+}
+
 defineExpose({
   toggleScrcpyFullscreen
 })
