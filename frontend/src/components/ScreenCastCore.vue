@@ -551,23 +551,31 @@ function exitCameraMode() {
 }
 
 function onCameraMouseMove(e: MouseEvent) {
-  if (!isCameraMode.value || !canvas.value) return
+  if (!isCameraMode.value || !canvas.value || !session.value.width || !session.value.height) return
 
   // Get current canvas rect (dynamic, works in both windowed and fullscreen mode)
   const rect = canvas.value.getBoundingClientRect()
-  const newX = Math.round(e.clientX - rect.left)
-  const newY = Math.round(e.clientY - rect.top)
+  const canvasX = Math.round(e.clientX - rect.left)
+  const canvasY = Math.round(e.clientY - rect.top)
 
-  // Check if mouse is at boundary
-  const atLeft = newX <= 50
-  const atRight = newX >= rect.width - 50
-  const atTop = newY <= 50
-  const atBottom = newY >= rect.height - 50
+  // Normalize to session coordinates (same as onPointer function)
+  const newX = Math.max(0, Math.min(session.value.width, Math.round((canvasX / rect.width) * session.value.width)))
+  const newY = Math.max(0, Math.min(session.value.height, Math.round((canvasY / rect.height) * session.value.height)))
+
+  // Check if mouse is at boundary (using canvas coordinates)
+  const atLeft = canvasX <= 100
+  const atRight = canvasX >= rect.width - 100
+  const atTop = canvasY <= 100
+  const atBottom = canvasY >= rect.height - 100
 
   if (atLeft || atRight || atTop || atBottom) {
-    // Calculate center position
-    const centerX = Math.round(rect.width / 2)
-    const centerY = Math.round(rect.height / 2)
+    // Calculate center position (in canvas coordinates)
+    const centerCanvasX = Math.round(rect.width / 2)
+    const centerCanvasY = Math.round(rect.height / 2)
+
+    // Normalize center to session coordinates
+    const centerX = Math.round((centerCanvasX / rect.width) * session.value.width)
+    const centerY = Math.round((centerCanvasY / rect.height) * session.value.height)
 
     // Release pointer capture
     if (cameraPointerId !== null) {
@@ -595,7 +603,7 @@ function onCameraMouseMove(e: MouseEvent) {
     // Send ACTION_DOWN at center to re-establish touch
     callApi("scrcpy_send_touch", 0, centerX, centerY, session.value.width, session.value.height)
   } else {
-    // Send touch move
+    // Send touch move (using normalized session coordinates)
     lastCameraX = newX
     lastCameraY = newY
     callApi("scrcpy_send_touch", 2, newX, newY, session.value.width, session.value.height)
