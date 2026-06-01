@@ -339,3 +339,28 @@ class KeyMappingExecutor:
             self.reset()
         elif focused and not self._enabled and self._enabled_before_focus:
             self._enabled = True
+
+    def has_mleft_key_configured(self):
+        """检查当前键位映射是否有任何控件配置了MLeft键"""
+        if not self._active_mapping:
+            return False
+
+        # 检查所有类型的控件
+        for ctrl in self._active_mapping.get("controls", []):
+            if ctrl.get("key") == "MLeft":
+                return True
+
+        for swp in self._active_mapping.get("swipes", []):
+            if swp.get("key") == "MLeft":
+                return True
+
+        for dpad in self._active_mapping.get("dpad", []):
+            for _, info in dpad.get("keys", {}).items():
+                if info.get("key") == "MLeft":
+                    return True
+
+        for cam in self._active_mapping.get("camera", []):
+            if cam.get("key") == "MLeft":
+                return True
+
+        return False

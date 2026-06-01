@@ -351,6 +351,12 @@ class Api:
         except Exception as e:
             return {'ok': False, 'error': str(e)}
 
+    def has_mleft_key_configured(self):
+        """检查当前键位映射是否有任何控件配置了MLeft键"""
+        if hasattr(self, 'key_mapping_executor') and self.key_mapping_executor:
+            return self.key_mapping_executor.has_mleft_key_configured()
+        return False
+
     def __dir__(self):
         return [
             'get_app_info', 'minimize', 'close', 'toggle_maximize', 'get_screencast_ratio', 'open_url',
@@ -385,6 +391,7 @@ class Api:
             'stop_key_listener',
             'get_pressed_key',
             'reset_mouse_to_center',
+            'has_mleft_key_configured',
         ]
 
 
