@@ -81,12 +81,11 @@ const status = ref<{ running: boolean; deviceName?: string | null; error?: strin
 const hoveredButtons = ref<Record<string, string>>({})
 const isFullscreen = ref(false)
 const showKeyMapping = ref(false)
+const isKeyMappingActive = ref(false)
 const isCameraMode = ref(false)
-const cameraToggleKey = ref<string | null>(null)
-let lastCameraNormX = 0.5
-let lastCameraNormY = 0.5
-let cameraSensitivity = 0.01
 let cameraPointerId: number | null = null
+let lastCameraX = 0
+let lastCameraY = 0
 let ws: WebSocket | null = null
 let wsReconnectAttempts = 0
 const MAX_WS_RECONNECT = 3
@@ -463,6 +462,7 @@ function toggleKeyMapping() {
 
 function closeKeyMapping() {
   showKeyMapping.value = false
+  isKeyMappingActive.value = true
 }
 
 async function enterCameraMode(config: { x: number; y: number; sensitivity: number }) {
@@ -472,52 +472,44 @@ async function enterCameraMode(config: { x: number; y: number; sensitivity: numb
       console.error('canvas or viewport is null')
       return
     }
+
     isCameraMode.value = true
 
-    // Try Pointer Lock first (best experience)
-    try {
-      await canvas.value.requestPointerLock()
-      // pointerlockchange will add mousemove listener and call camera_mode_enter
-      return
-    } catch (e) {
-      console.log('Pointer Lock not available, falling back to pointer capture:', e)
-    }
-
-    // Fallback: setPointerCapture
-    const rect = canvas.value.getBoundingClientRect()
+    // Simulate a mousedown to get pointer ID
     const mouseEvent = new MouseEvent('mousedown', {
-      clientX: rect.left + rect.width * (config.x ?? 0.5),
-      clientY: rect.top + rect.height * (config.y ?? 0.5),
+      clientX: config.x * canvas.value.getBoundingClientRect().width,
+      clientY: config.y * canvas.value.getBoundingClientRect().height,
       bubbles: true,
     })
-    const pointerId = canvas.value.dispatchEvent(mouseEvent) ? 1 : 1
+    const pointerId = canvas.value.dispatchEvent(mouseEvent) ? 1 : 1  // Default to 1 if no pointer ID available
+
+    // Wait a bit for pointer to be registered
     await new Promise(resolve => setTimeout(resolve, 50))
+
+    // Set pointer capture
     try {
       cameraPointerId = pointerId
       canvas.value.setPointerCapture(pointerId)
     } catch (e) {
-      console.log('setPointerCapture failed:', e)
+      console.log('setPointerCapture failed, continuing anyway:', e)
     }
-    viewport.value.style.cursor = 'none'
-    document.addEventListener('mousemove', onCameraMouseMove)
-    console.log('Camera mode activated (pointer capture)')
-  } catch (e) {
-    console.error('Failed to enter camera mode:', e)
-  }
-}
 
-function setCameraMode(active: boolean, config?: { x: number; y: number; sensitivity: number }) {
-  console.log('setCameraMode called:', active, config)
-  if (active && config) {
-    enterCameraMode(config)
-  } else {
-    exitCameraMode()
+    // Hide cursor
+    viewport.value.style.cursor = 'none'
+
+    document.addEventListener('mousemove', onCameraMouseMove)
+    console.log('Camera mode activated')
+
+  } catch (e) {
+    console.error("Failed to enter camera mode:", e)
   }
 }
 
 function exitCameraMode() {
   try {
     isCameraMode.value = false
+
+    // Release pointer capture
     if (canvas.value && cameraPointerId !== null) {
       try {
         canvas.value.releasePointerCapture(cameraPointerId)
@@ -526,66 +518,72 @@ function exitCameraMode() {
       }
       cameraPointerId = null
     }
+
+    // Show cursor
     if (viewport.value) {
       viewport.value.style.cursor = 'default'
     }
+
+    // Send touch up at last known position
+    callApi("scrcpy_send_touch", 1, lastCameraX, lastCameraY, session.value.width, session.value.height)
+
     document.removeEventListener('mousemove', onCameraMouseMove)
-    document.removeEventListener('mousemove', onCameraMouseMovePointerLock)
-    callApi('camera_mode_exit').catch(() => {})
     console.log('Camera mode deactivated')
   } catch (e) {
-    console.error('Failed to exit camera mode:', e)
+    console.error("Failed to exit camera mode:", e)
   }
-}
-
-function onPointerLockChange() {
-  if (document.pointerLockElement === canvas.value) {
-    isCameraMode.value = true
-    if (viewport.value) {
-      viewport.value.style.cursor = 'none'
-    }
-    callApi('camera_mode_enter').then((result: any) => {
-      if (result?.config) {
-        lastCameraNormX = result.config.x ?? 0.5
-        lastCameraNormY = result.config.y ?? 0.5
-        cameraSensitivity = result.config.sensitivity ?? 0.01
-      }
-    }).catch(() => {})
-    document.addEventListener('mousemove', onCameraMouseMovePointerLock)
-  } else {
-    exitCameraMode()
-  }
-}
-
-function cleanupCameraMode() {
-  if (!isCameraMode.value) return
-  isCameraMode.value = false
-  if (viewport.value) {
-    viewport.value.style.cursor = 'default'
-  }
-  document.removeEventListener('mousemove', onCameraMouseMovePointerLock)
-  callApi('camera_mode_exit').catch(() => {})
-}
-
-function onCameraMouseMovePointerLock(e: MouseEvent) {
-  if (!isCameraMode.value || !canvas.value) return
-  const dx = e.movementX * cameraSensitivity
-  const dy = e.movementY * cameraSensitivity
-  lastCameraNormX = Math.max(0, Math.min(1, lastCameraNormX + dx))
-  lastCameraNormY = Math.max(0, Math.min(1, lastCameraNormY + dy))
-  callApi('scrcpy_send_normalized_touch', 2, lastCameraNormX, lastCameraNormY)
 }
 
 function onCameraMouseMove(e: MouseEvent) {
-  if (!isCameraMode.value || !canvas.value || !viewport.value) return
-  const rect = viewport.value.getBoundingClientRect()
-  lastCameraNormX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-  lastCameraNormY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
-  callApi('scrcpy_send_normalized_touch', 2, lastCameraNormX, lastCameraNormY)
-}
+  if (!isCameraMode.value || !canvas.value) return
 
-function setCameraToggleKey(key: string | null) {
-  cameraToggleKey.value = key
+  // Get current canvas rect (dynamic, works in both windowed and fullscreen mode)
+  const rect = canvas.value.getBoundingClientRect()
+  const newX = Math.round(e.clientX - rect.left)
+  const newY = Math.round(e.clientY - rect.top)
+
+  // Check if mouse is at boundary
+  const atLeft = newX <= 50
+  const atRight = newX >= rect.width - 50
+  const atTop = newY <= 50
+  const atBottom = newY >= rect.height - 50
+
+  if (atLeft || atRight || atTop || atBottom) {
+    // Calculate center position
+    const centerX = Math.round(rect.width / 2)
+    const centerY = Math.round(rect.height / 2)
+
+    // Release pointer capture
+    if (cameraPointerId !== null) {
+      try {
+        canvas.value.releasePointerCapture(cameraPointerId)
+      } catch (err) {
+        console.log('releasePointerCapture failed:', err)
+      }
+    }
+
+    // Reset mouse position to center via backend
+    callApi("reset_mouse_to_center")
+
+    // Re-acquire pointer capture
+    if (cameraPointerId !== null) {
+      try {
+        canvas.value.setPointerCapture(cameraPointerId)
+      } catch (err) {
+        console.log('setPointerCapture failed:', err)
+      }
+    }
+
+    lastCameraX = centerX
+    lastCameraY = centerY
+    // Send ACTION_DOWN at center to re-establish touch
+    callApi("scrcpy_send_touch", 0, centerX, centerY, session.value.width, session.value.height)
+  } else {
+    // Send touch move
+    lastCameraX = newX
+    lastCameraY = newY
+    callApi("scrcpy_send_touch", 2, newX, newY, session.value.width, session.value.height)
+  }
 }
 
 onMounted(async () => {
@@ -607,12 +605,8 @@ onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('keyup', handleKeyup)
 
-  document.addEventListener("pointerlockchange", onPointerLockChange)
-
-  // Register global function for backend to pass camera toggle key
-  ;(window as any).setCameraToggleKey = setCameraToggleKey
+  // Register global camera mode function for backend to call
   ;(window as any).setCameraMode = setCameraMode
-  ;(window as any).cleanupCameraMode = cleanupCameraMode
 
   await nextTick()
   await startConnection()
@@ -626,16 +620,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keyup', handleKeyup)
 
-  document.removeEventListener("pointerlockchange", onPointerLockChange)
-  document.removeEventListener("mousemove", onCameraMouseMovePointerLock)
-
-  // Exit Pointer Lock if active
-  if (document.pointerLockElement) {
-    document.exitPointerLock()
-  }
-
   // Clean up global function
-  delete (window as any).setCameraToggleKey
+  delete (window as any).setCameraMode
 
   stopConnection()
 })
@@ -649,19 +635,6 @@ function handleFocus() {
 }
 
 function handleKeydown(event: KeyboardEvent) {
-  // Camera toggle key interception
-  if (cameraToggleKey.value) {
-    const pressedKey = event.key.length === 1 ? event.key.toUpperCase() : event.key
-    if (pressedKey === cameraToggleKey.value) {
-      event.preventDefault()
-      if (!isCameraMode.value) {
-        canvas.value?.requestPointerLock()
-      } else {
-        document.exitPointerLock()
-      }
-      return
-    }
-  }
   if (event.key === 'Escape' && isFullscreen.value) {
     toggleScrcpyFullscreen()
   }
@@ -670,7 +643,14 @@ function handleKeydown(event: KeyboardEvent) {
 function handleKeyup(_event: KeyboardEvent) {
 }
 
-
+function setCameraMode(active: boolean, config?: { x: number; y: number; sensitivity: number }) {
+  console.log('setCameraMode called:', active, config)
+  if (active && config) {
+    enterCameraMode(config)
+  } else {
+    exitCameraMode()
+  }
+}
 
 defineExpose({
   toggleScrcpyFullscreen

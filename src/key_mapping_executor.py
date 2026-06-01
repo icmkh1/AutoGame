@@ -14,10 +14,9 @@ class KeyMappingExecutor:
         self._enabled_before_focus = False
         self._down_state_keys: dict[str, tuple[int, float, float]] = {}  # single-control key -> (pointer_id, x, y)
         self._dpad_states: dict[int, dict] = {}  # dpad index -> {pressed: set[str], pid: int|None, ex: float, ey: float}
-        self._camera_active = False  # 3D视角模式是否激�?
+        self._camera_active = False  # 3D视角模式是否激活
         self._camera_config = None   # 当前相机控件配置
         self._camera_center = (0.5, 0.5)
-        self._use_pointer_lock = False
 
     _DIR_VECTORS = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
     _OPPOSITE_DIRS = {"up": "down", "down": "up", "left": "right", "right": "left"}
@@ -25,8 +24,6 @@ class KeyMappingExecutor:
     def apply(self, mapping_data):
         self._active_mapping = mapping_data
         self._enabled = True
-        camera_items = mapping_data.get("camera", [])
-        self._use_pointer_lock = len(camera_items) > 0
 
     def remove(self):
         self.reset()
@@ -60,14 +57,6 @@ class KeyMappingExecutor:
             if k:
                 keys.add(k)
         return keys
-
-    def get_camera_config(self):
-        if not self._active_mapping:
-            return None
-        for cam in self._active_mapping.get("camera", []):
-            if cam.get("key"):
-                return {"key": cam.get("key"), "x": cam.get("x", 0.5), "y": cam.get("y", 0.5), "sensitivity": cam.get("sensitivity", 0.005)}
-        return None
 
     @staticmethod
     def _resolve_edge(pressed_keys, key_to_dir, cx, cy, radius, sw=None, sh=None):
@@ -189,14 +178,14 @@ class KeyMappingExecutor:
             new_edge = self._resolve_edge(new_pressed, key_to_dir, cx, cy, radius, _sw, _sh)
 
             if new_edge is None:
-                # All directions canceled out �?release
+                # All directions canceled out — release
                 if state["pid"] is not None:
                     self.scrcpy.send_normalized_touch(1, state["ex"], state["ey"], pointer_id=state["pid"])
                     state["pid"] = None
                 return True
 
             if old_edge is None:
-                # No previous touch �?start fresh from center
+                # No previous touch — start fresh from center
                 resp = self.scrcpy.send_normalized_touch(0, cx, cy)
                 if resp.get("ok"):
                     pid = resp.get("pointer_id")
@@ -206,7 +195,7 @@ class KeyMappingExecutor:
                         state["ex"], state["ey"] = new_edge
                 return True
 
-            # Both old and new exist �?decide restart or move
+            # Both old and new exist → decide restart or move
             ox, oy = old_edge
             nx, ny = new_edge
             old_len = math.sqrt((ox - cx) ** 2 + (oy - cy) ** 2)
@@ -217,7 +206,7 @@ class KeyMappingExecutor:
                 dot = 1.0
 
             if dot < 0:
-                # Opposite direction �?restart touch at center
+                # Opposite direction → restart touch at center
                 self.scrcpy.send_normalized_touch(1, state["ex"], state["ey"], pointer_id=state["pid"])
                 resp = self.scrcpy.send_normalized_touch(0, cx, cy)
                 if resp.get("ok"):
@@ -227,7 +216,7 @@ class KeyMappingExecutor:
                         state["pid"] = pid
                         state["ex"], state["ey"] = nx, ny
             else:
-                # Same general direction �?just move touch
+                # Same general direction → just move touch
                 self.scrcpy.send_normalized_touch(2, nx, ny, pointer_id=state["pid"])
                 state["ex"], state["ey"] = nx, ny
 
@@ -267,7 +256,7 @@ class KeyMappingExecutor:
             state["pressed"].discard(key_name)
 
             if not state["pressed"]:
-                # No more keys �?release touch
+                # No more keys — release touch
                 if state["pid"] is not None:
                     self.scrcpy.send_normalized_touch(1, state["ex"], state["ey"], pointer_id=state["pid"])
                     state["pid"] = None
@@ -340,7 +329,6 @@ class KeyMappingExecutor:
         self._camera_active = False
         self._camera_config = None
         self._camera_center = (0.5, 0.5)
-        self._use_pointer_lock = False
         if self.scrcpy:
             self.scrcpy.key_mapping_reset()
 
@@ -351,4 +339,3 @@ class KeyMappingExecutor:
             self.reset()
         elif focused and not self._enabled and self._enabled_before_focus:
             self._enabled = True
-        self._use_pointer_lock = False
