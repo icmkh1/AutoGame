@@ -86,9 +86,6 @@ const isCameraMode = ref(false)
 const hasMleftKeyConfigured = ref(false)
 let cameraCenterX = 0.5
 let cameraCenterY = 0.5
-let firstMove = true      // 首次 pointermove 只记录位置，不发 delta
-let lastClientX = 0
-let lastClientY = 0
 let ws: WebSocket | null = null
 let wsReconnectAttempts = 0
 let mleftCheckInterval: number | null = null
@@ -457,7 +454,6 @@ async function onPointer(action: number, event: PointerEvent) {
       // 第一次 pointerdown 时捕获指针，获得连续跟踪
       if (canvas.value) {
         canvas.value.setPointerCapture(event.pointerId)
-        firstMove = true
       }
       return
     }
@@ -509,9 +505,6 @@ async function enterCameraMode(config?: { x: number; y: number }) {
   isCameraMode.value = true
   cameraCenterX = config?.x ?? 0.5
   cameraCenterY = config?.y ?? 0.5
-  firstMove = true
-  lastClientX = 0
-  lastClientY = 0
   // Hide cursor
   viewport.value.style.cursor = 'none'
   console.log('Camera mode activated, center:', cameraCenterX, cameraCenterY)
