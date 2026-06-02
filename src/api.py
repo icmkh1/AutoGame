@@ -16,7 +16,7 @@ class Api:
         self._window = None
         self._maximized = False
         self.scrcpy = ScrcpyManager()
-        self.key_mapping_executor = KeyMappingExecutor(self.scrcpy, self)
+        self.key_mapping_executor = KeyMappingExecutor(self.scrcpy)
 
     def get_config_file(self):
         config = self.file_manager.load_config_file()
@@ -337,12 +337,6 @@ class Api:
             return {"ok": False, "error": f"unknown ratio: {ratio}"}
 
 
-    def has_mleft_key_configured(self):
-        """检查当前键位映射是否有任何控件配置了MLeft键"""
-        if hasattr(self, 'key_mapping_executor') and self.key_mapping_executor:
-            return self.key_mapping_executor.has_mleft_key_configured()
-        return False
-
     def __dir__(self):
         return [
             'get_app_info', 'minimize', 'close', 'toggle_maximize', 'get_screencast_ratio', 'open_url',
@@ -376,9 +370,7 @@ class Api:
             'set_focus_state',
             'stop_key_listener',
             'get_pressed_key',
-            'has_mleft_key_configured',
         ]
-
 
 
 

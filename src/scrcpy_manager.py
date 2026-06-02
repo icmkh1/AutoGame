@@ -144,6 +144,7 @@ class ScrcpyManager:
         self._address: str | None = None
         self._pointer_manager = PointerManager()
         self._serial: str | None = None
+        self._last_swipe_future: asyncio.Future[None] | None = None
 
     # ------------------------------------------------------------------ #
     # Public API (called from pywebview thread)
@@ -243,11 +244,10 @@ class ScrcpyManager:
             server_args.append(f"video_source={video_source}")
             if quality != "unlimited":
                 server_args.append(f"max_size={quality}")
-            if isinstance(bitrate, int):
-                # Frontend sends bitrate as integer (1-100 Mbps)
-                server_args.append(f"video_bit_rate={bitrate * 1000000}")
-            if fps_limit != "unlimited":
-                server_args.append(f"max_fps={fps_limit}")
+            if isinstance(bitrate, (int, float)):
+                server_args.append(f"video_bit_rate={int(bitrate) * 1000000}")
+            if isinstance(fps_limit, (int, float)):
+                server_args.append(f"max_fps={int(fps_limit)}")
         if audio_enabled:
             server_args.append(f"audio_source={audio_source}")
             server_args.append("audio_codec=raw")
@@ -519,6 +519,94 @@ class ScrcpyManager:
         except (BrokenPipeError, ConnectionError, OSError) as exc:
             return {"ok": False, "error": str(exc)}
 
+    def execute_direction_swipe(self, pointer_id: int, from_x: float, from_y: float,
+                                 to_x: float, to_y: float, duration_ms: float) -> dict:
+        """Execute a MOVE-only swipe using an existing pointer. No DOWN, no UP.
+
+        The touch pointer stays at the target position after the swipe.
+        """
+        if self._client is None or self._client.control is None:
+            return {"ok": False, "error": "control stream is not running"}
+        if not self._last_session:
+            return {"ok": False, "error": "no session size"}
+        sw, sh = self._last_session
+        future = asyncio.run_coroutine_threadsafe(
+            self._execute_direction_swipe_async(pointer_id, from_x, from_y, to_x, to_y, duration_ms, sw, sh),
+            self._loop
+        )
+        try:
+            return future.result(timeout=2.0)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    async def _execute_direction_swipe_async(self, pointer_id: int, from_x: float, from_y: float,
+                                               to_x: float, to_y: float, duration_ms: float,
+                                               sw: int, sh: int) -> dict:
+        """Send a round-trip MOVE sequence with natural arc (curved, not straight).
+
+        Each execution generates a random slight arc so the path looks human.
+        No DOWN, no UP — the pointer stays active throughout.
+        """
+        import math, random
+
+        from_x_px = max(0, min(sw, int(from_x * sw)))
+        from_y_px = max(0, min(sh, int(from_y * sh)))
+        to_x_px = max(0, min(sw, int(to_x * sw)))
+        to_y_px = max(0, min(sh, int(to_y * sh)))
+
+        if duration_ms < 10:
+            out_ms = 5
+            back_ms = duration_ms - 5
+        else:
+            out_ms = duration_ms * 0.5
+            back_ms = duration_ms * 0.5
+
+        dx = abs(to_x_px - from_x_px)
+        dy = abs(to_y_px - from_y_px)
+        max_arc = max(dx * 0.15, dy * 0.15, 15)
+
+        def rand_ctl(frac_x, frac_y):
+            bx = from_x_px + (to_x_px - from_x_px) * frac_x + random.uniform(-max_arc * 0.4, max_arc * 0.4)
+            by = from_y_px + (to_y_px - from_y_px) * frac_y + random.uniform(-max_arc, max_arc)
+            return (bx, by)
+
+        out_cp1 = rand_ctl(0.33, 0.33)
+        out_cp2 = rand_ctl(0.67, 0.67)
+
+        back_cp1 = rand_ctl(0.33, 0.33)
+        back_cp2 = rand_ctl(0.67, 0.67)
+
+        def cubic_bezier(p0, p1, p2, p3, t):
+            u = 1 - t
+            bx = int(u**3 * p0[0] + 3 * u**2 * t * p1[0] + 3 * u * t**2 * p2[0] + t**3 * p3[0])
+            by = int(u**3 * p0[1] + 3 * u**2 * t * p1[1] + 3 * u * t**2 * p2[1] + t**3 * p3[1])
+            return (max(0, min(sw - 1, bx)), max(0, min(sh - 1, by)))
+
+        ctrl = self._client.control
+
+        p0 = (from_x_px, from_y_px)
+        p3 = (to_x_px, to_y_px)
+
+        # Phase 1: swipe out along cubic Bézier
+        out_steps = 15
+        out_delay = out_ms / 1000.0 / out_steps
+        for i in range(1, out_steps + 1):
+            px, py = cubic_bezier(p0, out_cp1, out_cp2, p3, i / out_steps)
+            await ctrl.send_touch(2, px, py, sw, sh, pointer_id=pointer_id)
+            if out_delay > 0:
+                await asyncio.sleep(out_delay)
+
+        # Phase 2: swipe back along different cubic Bézier
+        back_steps = 20
+        back_delay = back_ms / 1000.0 / back_steps
+        for i in range(1, back_steps + 1):
+            px, py = cubic_bezier(p3, back_cp1, back_cp2, p0, i / back_steps)
+            await ctrl.send_touch(2, px, py, sw, sh, pointer_id=pointer_id)
+            if back_delay > 0:
+                await asyncio.sleep(back_delay)
+
+        return {"ok": True, "final_x": from_x, "final_y": from_y}
+
     def key_mapping_reset(self) -> dict:
         """Reset the pointer manager, releasing all active touch pointers."""
         self._pointer_manager.reset()
@@ -528,37 +616,106 @@ class ScrcpyManager:
         return self._pointer_manager
 
 
-    def key_mapping_swipe(self, path_data: list) -> dict:
+    def key_mapping_swipe(self, path_data: list, recreate_touches: list | None = None) -> dict:
         if self._client is None or self._client.control is None:
             return {"ok": False, "error": "control stream is not running"}
         if not self._last_session:
             return {"ok": False, "error": "no session size"}
         try:
             sw, sh = self._last_session
-            asyncio.run_coroutine_threadsafe(self._send_swipe_async(path_data, sw, sh), self._loop)
+            self._swipe_recreate_results = None
+            self._last_swipe_future = asyncio.run_coroutine_threadsafe(
+                self._send_swipe_async(path_data, sw, sh, recreate_touches), self._loop
+            )
             return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
-    async def _send_swipe_async(self, path_data: list, sw: int, sh: int):
-        if not path_data:
+    def wait_swipe_complete(self, timeout: float = 0.5) -> list | None:
+        """Wait for the last swipe to complete. Returns re-created touch results."""
+        future = self._last_swipe_future
+        if future is not None and not future.done():
+            try:
+                future.result(timeout=timeout)
+            except Exception:
+                pass
+        return self._swipe_recreate_results
+
+    async def _send_swipe_async(self, path_data: list, sw: int, sh: int,
+                                 recreate_touches: list | None = None):
+        if not path_data or self._client is None or self._client.control is None:
             return
-        first = path_data[0]
-        px = max(0, min(sw, int(first["x"] * sw)))
-        py = max(0, min(sh, int(first["y"] * sh)))
-        await self._client.control.send_touch(0, px, py, sw, sh, pointer_id=123)
-        for i in range(1, len(path_data)):
-            pt = path_data[i]
-            delay = pt.get("delayMs", 0) - path_data[i-1].get("delayMs", 0)
-            if delay > 0:
-                await asyncio.sleep(delay / 1000.0)
-            px = max(0, min(sw, int(pt["x"] * sw)))
-            py = max(0, min(sh, int(pt["y"] * sh)))
-            await self._client.control.send_touch(2, px, py, sw, sh, pointer_id=123)
-        last = path_data[-1]
-        px = max(0, min(sw, int(last["x"] * sw)))
-        py = max(0, min(sh, int(last["y"] * sh)))
-        await self._client.control.send_touch(1, px, py, sw, sh, pointer_id=123)
+        pm = self._pointer_manager
+        pid = pm.allocate()
+        if pid is None:
+            return
+        try:
+            first = path_data[0]
+            px = max(0, min(sw, int(first["x"] * sw)))
+            py = max(0, min(sh, int(first["y"] * sh)))
+            await self._client.control.send_touch(0, px, py, sw, sh, pointer_id=pid)
+            for i in range(1, len(path_data)):
+                pt = path_data[i]
+                delay = pt.get("delayMs", 0) - path_data[i-1].get("delayMs", 0)
+                if delay > 0:
+                    await asyncio.sleep(delay / 1000.0)
+                px = max(0, min(sw, int(pt["x"] * sw)))
+                py = max(0, min(sh, int(pt["y"] * sh)))
+                await self._client.control.send_touch(2, px, py, sw, sh, pointer_id=pid)
+            last = path_data[-1]
+            px = max(0, min(sw, int(last["x"] * sw)))
+            py = max(0, min(sh, int(last["y"] * sh)))
+            await self._client.control.send_touch(1, px, py, sw, sh, pointer_id=pid)
+        finally:
+            pm.release(pid)
+
+        # Re-create active touches that the swipe may have disrupted.
+        # We are on the event loop, so use control stream directly (no _submit).
+        if recreate_touches:
+            results = await self._recreate_touches_async(recreate_touches, sw, sh)
+            self._swipe_recreate_results = results
+
+    async def _recreate_touches_async(self, touches: list, sw: int, sh: int) -> list:
+        """Re-create touches after swipe: UP all → 1ms gap → DOWN all.
+
+        Minimal latency so direction keys resume immediately after swipe.
+        Called from the event loop — uses control stream directly."""
+        ctrl = self._client.control
+
+        # Phase 1: release all direction touches
+        for t in touches:
+            if t["type"] == "control":
+                px = max(0, min(sw, int(t["x"] * sw)))
+                py = max(0, min(sh, int(t["y"] * sh)))
+                await ctrl.send_touch_managed(1, px, py, sw, sh, pointer_id=t["old_pid"])
+            elif t["type"] == "dpad":
+                ex = max(0, min(sw, int(t["ex"] * sw)))
+                ey = max(0, min(sh, int(t["ey"] * sh)))
+                await ctrl.send_touch_managed(1, ex, ey, sw, sh, pointer_id=t["old_pid"])
+
+        # Minimal gap — just enough for the game to detect the release
+        await asyncio.sleep(0.001)
+
+        # Phase 2: re-press all direction touches
+        results = []
+        for t in touches:
+            if t["type"] == "control":
+                px = max(0, min(sw, int(t["x"] * sw)))
+                py = max(0, min(sh, int(t["y"] * sh)))
+                new_pid = await ctrl.send_touch_managed(0, px, py, sw, sh)
+                if new_pid is not None:
+                    results.append({"type": "control", "key": t["key"], "new_pid": new_pid})
+            elif t["type"] == "dpad":
+                cx = max(0, min(sw, int(t["cx"] * sw)))
+                cy = max(0, min(sh, int(t["cy"] * sh)))
+                ex = max(0, min(sw, int(t["ex"] * sw)))
+                ey = max(0, min(sh, int(t["ey"] * sh)))
+                new_pid = await ctrl.send_touch_managed(0, cx, cy, sw, sh)
+                if new_pid is not None:
+                    await ctrl.send_touch_managed(2, ex, ey, sw, sh, pointer_id=new_pid)
+                    results.append({"type": "dpad", "idx": t["idx"], "new_pid": new_pid})
+
+        return results
 
     # ------------------------------------------------------------------ #
     # Screen ratio management (adb shell wm size)

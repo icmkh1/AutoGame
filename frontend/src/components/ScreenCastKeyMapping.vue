@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div
     class="key-mapping-overlay"
     @mousedown.left="onOverlayMouseDown"
@@ -12,10 +12,11 @@
         <!-- Single controls -->
         <div v-for="ctrl in controls" :key="ctrl.id"
              class="key-control"
-             :class="{ listening: editingControlId === ctrl.id }"
+             :class="{ listening: editingControlId === ctrl.id, selected: selectedControlId === ctrl.id }"
              :style="ctrlStyle(ctrl)"
              @mousedown.left.stop="startDrag($event, ctrl)"
              @click.stop="editControl(ctrl)">
+          <div v-if="ctrl.offsetRange > 0" class="offset-circle" :style="offsetCircleStyle(ctrl)"></div>
           <div class="control-circle">
             <span class="control-label" :style="ctrlLabelStyle(ctrl)">{{ ctrl.label || (editingControlId === ctrl.id ? '...' : '?') }}</span>
             <button class="control-close" @click.stop="removeControl(ctrl.id)" :style="controlCloseStyle(ctrl)">&times;</button>
@@ -24,7 +25,9 @@
         <!-- DPad controls -->
         <div v-for="dpad in dpads" :key="dpad.id"
              class="key-control dpad"
-             :style="ctrlStyle(dpad, true)" @mousedown.left.stop="startDrag($event, dpad, 'dpad')">
+             :class="{ selected: selectedDpadId === dpad.id }"
+             :style="ctrlStyle(dpad, true)" @mousedown.left.stop="startDrag($event, dpad, 'dpad')" @click.stop="selectDpad(dpad)">
+          <div v-if="dpad.offsetRange > 0" class="offset-circle" :style="dpadOffsetCircleStyle(dpad)"></div>
           <div class="dpad-rect"></div>
           <div class="dpad-circle"></div>
           <div v-for="dir in ['up','down','left','right']" :key="dir"
@@ -61,25 +64,12 @@
         <svg v-for="swp in swipes" :key="'path-' + swp.id" v-show="swp.path && swp.path.length > 1" class="swipe-preview saved-swipe">
           <polyline :points="swp.path.map((p: any) => (p.x * kmCanvasWidth) + ',' + (p.y * kmCanvasHeight)).join(' ')"></polyline>
         </svg>
-        <!-- Camera controls -->
-        <div v-for="cam in cameras" :key="cam.id"
-             class="key-control camera"
-             :class="{ listening: editingControlId === cam.id }"
-             :style="ctrlStyle(cam)"
-             @mousedown.left.stop="startDrag($event, cam, 'camera')"
-             @click.stop="editControl(cam)">
-          <div class="control-circle camera-circle">
-            <span class="control-label" :style="ctrlLabelStyle(cam)">{{ cam.label || '3D' }}</span>
-            <button class="control-close" @click.stop="removeControl(cam.id)" :style="controlCloseStyle(cam)">&times;</button>
-          </div>
-        </div>
       </div>
     </div>
     <div v-if="contextMenu.show" class="context-menu"
          :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }">
       <div @click="createDirectionKey">方向键位(WASD)</div>
       <div @click="startSwipeRecording">滑动键位</div>
-      <div @click="createCameraControl">3D视角控制</div>
     </div>
   </div>
 
@@ -106,14 +96,6 @@
       </div>
     </div>
     <div class="km-scale-section">
-      <div class="km-scale-title">视角灵敏度</div>
-      <div class="km-scale-row">
-        <span class="km-scale-label active">X/Y</span>
-        <input type="range" min="0.5" max="5.0" step="0.1" :value="cameraSensitivity" @input="cameraSensitivity = Number(($event.target as HTMLInputElement).value); autoSave()" />
-        <span class="km-scale-value">{{ cameraSensitivity.toFixed(1) }}x</span>
-      </div>
-    </div>
-    <div class="km-scale-section">
       <div class="km-scale-title">按钮大小</div>
       <div class="km-scale-row">
         <span class="km-scale-label" :class="{ active: isLandscape }">横屏</span>
@@ -124,6 +106,14 @@
         <span class="km-scale-label" :class="{ active: !isLandscape }">竖屏</span>
         <input type="range" min="50" max="300" :value="scalePortrait" @input="scalePortrait = Number(($event.target as HTMLInputElement).value); autoSave()" />
         <span class="km-scale-value">{{ scalePortrait }}%</span>
+      </div>
+    </div>
+    <div v-if="selectedControlId || selectedDpadId" class="km-scale-section">
+      <div class="km-scale-title">随机偏移</div>
+      <div class="km-scale-row">
+        <span class="km-scale-label">范围</span>
+        <input type="range" min="0" max="20" step="0.5" :value="selectedOffsetRange" @input="setSelectedOffsetRange(Number(($event.target as HTMLInputElement).value))" />
+        <span class="km-scale-value">{{ selectedOffsetRange }}%</span>
       </div>
     </div>
     <div class="km-actions">
@@ -181,7 +171,6 @@ const currentFile = ref("")
 const controls = ref<any[]>([])
 const dpads = ref<any[]>([])
 const swipes = ref<any[]>([])
-const cameras = ref<any[]>([])
 const contextMenu = ref({ show: false, x: 0, y: 0 })
 const editingControlId = ref<string | null>(null)
 const editingDpadId = ref<string | null>(null)
@@ -200,7 +189,8 @@ const kmCanvasRef = ref<HTMLElement | null>(null)
 
 const scaleLandscape = ref(100)  // 横屏缩放百分比
 const scalePortrait = ref(200)   // 竖屏缩放百分比（默认大60%）
-const cameraSensitivity = ref(1.0)  // 视角灵敏度
+const selectedControlId = ref<string | null>(null)
+const selectedDpadId = ref<string | null>(null)
 
 
 let dragTarget: any = null
@@ -214,6 +204,29 @@ let keyPollTimer: number | null = null
 
 const isLandscape = computed(() => kmCanvasWidth.value > kmCanvasHeight.value)
 const orientationScale = computed(() => (isLandscape.value ? scaleLandscape.value : scalePortrait.value) / 100)
+
+const selectedOffsetRange = computed(() => {
+  if (selectedControlId.value) {
+    const ctrl = [...controls.value, ...swipes.value].find(c => c.id === selectedControlId.value)
+    return ctrl?.offsetRange ?? 0
+  }
+  if (selectedDpadId.value) {
+    const dpad = dpads.value.find(d => d.id === selectedDpadId.value)
+    return dpad?.offsetRange ?? 0
+  }
+  return 0
+})
+
+function setSelectedOffsetRange(value: number) {
+  if (selectedControlId.value) {
+    const ctrl = [...controls.value, ...swipes.value].find(c => c.id === selectedControlId.value)
+    if (ctrl) { ctrl.offsetRange = value; autoSave() }
+  }
+  if (selectedDpadId.value) {
+    const dpad = dpads.value.find(d => d.id === selectedDpadId.value)
+    if (dpad) { dpad.offsetRange = value; autoSave() }
+  }
+}
 
 let kmResizeObserver: ResizeObserver | null = null
 
@@ -272,6 +285,44 @@ function controlCloseStyle(item: any, isDpad = false) {
     fontSize: fontSize + "px",
     top: (-btnSize / 2.5) + "px",
     right: (-btnSize / 2.5) + "px"
+  }
+}
+
+function offsetCircleStyle(item: any): Record<string, any> {
+  if (!kmCanvasRef.value || !item.offsetRange) return { display: 'none' }
+  const canvasSize = Math.max(kmCanvasWidth.value, kmCanvasHeight.value)
+  const r = (item.offsetRange / 100) * canvasSize
+  return {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: (r * 2) + 'px',
+    height: (r * 2) + 'px',
+    marginLeft: (-r) + 'px',
+    marginTop: (-r) + 'px',
+    border: '1px dashed rgba(255,255,100,0.5)',
+    borderRadius: '50%',
+    pointerEvents: 'none',
+    zIndex: 0,
+  }
+}
+
+function dpadOffsetCircleStyle(item: any): Record<string, any> {
+  if (!kmCanvasRef.value || !item.offsetRange) return { display: 'none' }
+  const canvasSize = Math.max(kmCanvasWidth.value, kmCanvasHeight.value)
+  const r = (item.offsetRange / 100) * canvasSize
+  return {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: (r * 2) + 'px',
+    height: (r * 2) + 'px',
+    marginLeft: (-r) + 'px',
+    marginTop: (-r) + 'px',
+    border: '1px dashed rgba(255,255,100,0.5)',
+    borderRadius: '50%',
+    pointerEvents: 'none',
+    zIndex: 0,
   }
 }
 
@@ -351,6 +402,8 @@ async function switchFile(name: string, skipSave = false) {
   editingControlId.value = null
   editingDpadId.value = null
   editingDpadDir.value = null
+  selectedControlId.value = null
+  selectedDpadId.value = null
   lastSwipePath.value = []
   try {
     const data = await callApi("load_key_mapping_file", name)
@@ -358,19 +411,16 @@ async function switchFile(name: string, skipSave = false) {
       controls.value = (data.controls || []).map((c: any) => ({ ...c }))
       dpads.value = (data.dpad || []).map((d: any) => ({ ...d }))
       swipes.value = (data.swipes || []).map((s: any) => ({ ...s }))
-      cameras.value = (data.camera || []).map((cam: any) => ({ ...cam }))
       scaleLandscape.value = data.scaleLandscape ?? 100
       scalePortrait.value = data.scalePortrait ?? 200
-      cameraSensitivity.value = data.cameraSensitivity ?? 1.0
     } else {
-      controls.value = []; dpads.value = []; swipes.value = []; cameras.value = []; scaleLandscape.value = 100; scalePortrait.value = 200
-      cameraSensitivity.value = 1.0
+      controls.value = []; dpads.value = []; swipes.value = []; scaleLandscape.value = 100; scalePortrait.value = 200
     }
     await callApi("apply_key_mapping", name)
     await saveSelectedKeyMappingFile(name)
     nextTick(() => updateKmCanvasSize())
   } catch (e) {
-    controls.value = []; dpads.value = []; swipes.value = []; cameras.value = []
+    controls.value = []; dpads.value = []; swipes.value = []
     console.error("Failed to load key mapping:", e)
   }
 }
@@ -382,11 +432,9 @@ async function saveCurrentMapping() {
     name: currentFile.value,
     scaleLandscape: scaleLandscape.value,
     scalePortrait: scalePortrait.value,
-    cameraSensitivity: cameraSensitivity.value,
-    controls: controls.value.map((c: any) => ({ id: c.id, type: "single", key: c.key, label: c.label, x: c.x, y: c.y, radius: c.radius })),
-    dpad: dpads.value.map((d: any) => ({ id: d.id, type: "dpad", x: d.x, y: d.y, size: d.size, keys: d.keys })),
+    controls: controls.value.map((c: any) => ({ id: c.id, type: "single", key: c.key, label: c.label, x: c.x, y: c.y, radius: c.radius, offsetRange: c.offsetRange || 0 })),
+    dpad: dpads.value.map((d: any) => ({ id: d.id, type: "dpad", x: d.x, y: d.y, size: d.size, keys: d.keys, offsetRange: d.offsetRange || 0 })),
     swipes: swipes.value.map((s: any) => ({ id: s.id, type: "swipe", label: s.label, key: s.key || "", x: s.x, y: s.y, radius: s.radius, path: s.path })),
-    camera: cameras.value.map((cam: any) => ({ id: cam.id, type: "camera", key: cam.key, label: cam.label, x: cam.x, y: cam.y, radius: cam.radius })),
   }
   try {
     await callApi("save_key_mapping_file", currentFile.value, data)
@@ -425,7 +473,7 @@ async function deleteFile(name: string) {
     keyMappingFiles.value = keyMappingFiles.value.filter(f => f !== name)
     if (currentFile.value === name) {
       currentFile.value = keyMappingFiles.value[0] || ""
-      controls.value = []; dpads.value = []; swipes.value = []; cameras.value = []; lastSwipePath.value = []
+      controls.value = []; dpads.value = []; swipes.value = []; lastSwipePath.value = []
       editingControlId.value = null; editingDpadId.value = null; editingDpadDir.value = null
       if (currentFile.value) await switchFile(currentFile.value, true)
     }
@@ -443,7 +491,8 @@ function onCanvasMouseDown(e: MouseEvent) {
   }
   if (isRecordingSwipe.value) return
   const pos = toNormalizedCoords(e.clientX, e.clientY)
-  const ctrl = { id: controlId("ctrl"), key: "", label: "", x: pos.x, y: pos.y, radius: 12 }
+  const ctrl = { id: controlId("ctrl"), key: "", label: "", x: pos.x, y: pos.y, radius: 12, offsetRange: 0 }
+  selectedControlId.value = null; selectedDpadId.value = null
   controls.value.push(ctrl); editingControlId.value = ctrl.id; setupKeyCapture()
 }
 
@@ -457,7 +506,7 @@ function createDirectionKey() {
   const norm = toNormalizedCoords(contextMenu.value.x, contextMenu.value.y)
   const sizeNorm = 0.06
   dpads.value.push({
-    id: controlId("dpad"), x: norm.x, y: norm.y, size: sizeNorm,
+    id: controlId("dpad"), x: norm.x, y: norm.y, size: sizeNorm, offsetRange: 0,
     keys: { up: { key: "W", label: "W" }, down: { key: "S", label: "S" }, left: { key: "A", label: "A" }, right: { key: "D", label: "D" } }
   })
   autoSave()
@@ -465,25 +514,6 @@ function createDirectionKey() {
 
 function startSwipeRecording() {
   contextMenu.value.show = false; pendingSwipe.value = true; updateKmCanvasSize()
-}
-
-function createCameraControl() {
-  contextMenu.value.show = false
-  if (!kmCanvasRef.value) return
-  const norm = toNormalizedCoords(contextMenu.value.x, contextMenu.value.y)
-  const cam = {
-    id: controlId("cam"),
-    type: "camera",
-    key: "",
-    label: "",
-    x: norm.x,
-    y: norm.y,
-    radius: 15
-  }
-  cameras.value.push(cam)
-  editingControlId.value = cam.id
-  setupKeyCapture()
-  autoSave()
 }
 
 function onOverlayMouseDown() {}
@@ -559,7 +589,16 @@ function onResizeMouseUp() {
 
 function editControl(ctrl: any) {
   if (editingControlId.value) return
-  editingControlId.value = ctrl.id; setupKeyCapture()
+  if (ctrl.key) {
+    selectedControlId.value = ctrl.id; selectedDpadId.value = null
+  } else {
+    selectedControlId.value = null; selectedDpadId.value = null
+    editingControlId.value = ctrl.id; setupKeyCapture()
+  }
+}
+
+function selectDpad(dpad: any) {
+  selectedDpadId.value = dpad.id; selectedControlId.value = null
 }
 
 function editDpadKey(dpad: any, dir: string) {
@@ -572,7 +611,6 @@ function removeControl(id: string) {
   dpads.value = dpads.value.filter(d => d.id !== id)
   const removedSwipe = swipes.value.find(s => s.id === id)
   swipes.value = swipes.value.filter(s => s.id !== id)
-  cameras.value = cameras.value.filter(cam => cam.id !== id)
   if (removedSwipe && lastSwipePath.value.length > 0) {
     if (JSON.stringify(lastSwipePath.value) === JSON.stringify(removedSwipe.path)) {
       lastSwipePath.value = []
@@ -603,11 +641,12 @@ async function setupKeyCapture() {
 
 async function processCapturedKey(key: string) {
   if (editingControlId.value) {
-    const ctrl = [...controls.value, ...swipes.value, ...cameras.value].find(c => c.id === editingControlId.value)
+    const ctrl = [...controls.value, ...swipes.value].find(c => c.id === editingControlId.value)
     if (ctrl) {
-      if (![...controls.value, ...swipes.value, ...cameras.value].find(c => c.id !== ctrl.id && c.key === key)) {
+      if (![...controls.value, ...swipes.value].find(c => c.id !== ctrl.id && c.key === key)) {
         ctrl.key = key; ctrl.label = getKeyLabel(key)
       }
+      selectedControlId.value = editingControlId.value
       editingControlId.value = null; autoSave()
     }
   } else if (editingDpadId.value && editingDpadDir.value) {
@@ -625,6 +664,7 @@ function teardownKeyCapture() {
 async function closeKeyMapping() {
   await saveCurrentMapping()
   editingControlId.value = null; editingDpadId.value = null; editingDpadDir.value = null
+  selectedControlId.value = null; selectedDpadId.value = null
   contextMenu.value.show = false; isRecordingSwipe.value = false; pendingSwipe.value = false
   swipePoints.value = []; lastSwipePath.value = []
   teardownKeyCapture()

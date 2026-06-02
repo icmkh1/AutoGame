@@ -3,35 +3,18 @@
 from __future__ import annotations
 
 import math
-import threading
-import time
-from autoxkit.mousekey.mouse import Mouse
+import random
 
 
 class KeyMappingExecutor:
-    def __init__(self, scrcpy_manager, api=None):
+    def __init__(self, scrcpy_manager):
         self.scrcpy = scrcpy_manager
-        self._api = api
         self._active_mapping = None
         self._enabled = False
         self._enabled_before_focus = False
         self._down_state_keys: dict[str, tuple[int, float, float]] = {}  # single-control key -> (pointer_id, x, y)
         self._dpad_states: dict[int, dict] = {}  # dpad index -> {pressed: set[str], pid: int|None, ex: float, ey: float}
-        self._camera_active = False  # 3D视角模式是否激活
-        self._camera_config = None   # 当前相机控件配置
-        self._camera_center = (0.5, 0.5)
-        self._camera_touch_x = 0         # 当前触摸位置 X（像素）
-        self._camera_touch_y = 0         # 当前触摸位置 Y（像素）
-        self._camera_screen_width = 0    # 设备屏幕宽度
-        self._camera_screen_height = 0   # 设备屏幕高度
-        self._camera_sensitivity = 1.0   # 视角灵敏度（从 mapping data 读取）
-        self._camera_mouse = None            # Mouse 实例（延时初始化）
-        self._camera_monitor_center = (0, 0) # 显示器中心
-        self._camera_boundary_radius_sq = 10000  # 100²
-        self._camera_last_mouse = (0, 0)     # 上次轮询的鼠标位置
-        self._camera_poll_thread = None      # 轮询线程
-        self._camera_poll_stop = threading.Event()  # 停止信号
-        self._camera_lock = threading.Lock() # 保护共享状态
+        self._active_swipe_keys: set[str] = set()  # pressed swipe keys (dedup + re-apply on release)
 
     _DIR_VECTORS = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
     _OPPOSITE_DIRS = {"up": "down", "down": "up", "left": "right", "right": "left"}
@@ -39,7 +22,6 @@ class KeyMappingExecutor:
     def apply(self, mapping_data):
         self._active_mapping = mapping_data
         self._enabled = True
-        self._camera_sensitivity = mapping_data.get('cameraSensitivity', 1.0)
 
     def remove(self):
         self.reset()
@@ -68,36 +50,15 @@ class KeyMappingExecutor:
                 k = info.get("key")
                 if k:
                     keys.add(k)
-        for cam in self._active_mapping.get("camera", []):
-            k = cam.get("key")
-            if k:
-                keys.add(k)
         return keys
 
     @staticmethod
-    def _resolve_edge(pressed_keys, key_to_dir, cx, cy, radius, sw=None, sh=None):
-        """Resolve the edge position from a set of pressed dpad keys.
-
-        When *sw* and *sh* (screen pixel dimensions) are provided the direction
-        is normalised in pixel-weighted space, so diagonal directions land at the
-        correct angle regardless of the screen aspect ratio.
-        """
+    def _resolve_edge(pressed_keys, key_to_dir, cx, cy, radius):
+        """Resolve the edge position from a set of pressed dpad keys."""
         if not pressed_keys:
             return None
         dx = sum(KeyMappingExecutor._DIR_VECTORS[key_to_dir[k]][0] for k in pressed_keys if k in key_to_dir)
         dy = sum(KeyMappingExecutor._DIR_VECTORS[key_to_dir[k]][1] for k in pressed_keys if k in key_to_dir)
-
-        if sw is not None and sh is not None and sw > 0 and sh > 0 and dx != 0 and dy != 0:
-            # Aspect-ratio-aware normalisation: weight components by inverse screen
-            # dimensions so the touch position has the correct angle in pixel space.
-            dx_w = dx / sw
-            dy_w = dy / sh
-            length_w = math.sqrt(dx_w * dx_w + dy_w * dy_w)
-            if length_w == 0:
-                return None
-            return (cx + dx_w / length_w * radius, cy + dy_w / length_w * radius)
-
-        # Fallback: pure unit-vector normalisation (cardinal-only or missing dims)
         length = math.sqrt(dx * dx + dy * dy)
         if length == 0:
             return None
@@ -111,17 +72,17 @@ class KeyMappingExecutor:
         if key_name in self._down_state_keys:
             return False
 
-        # Check camera controls (toggle mode)
-        for cam in self._active_mapping.get("camera", []):
-            if cam.get("key") == key_name:
-                self._toggle_camera_mode(cam)
-                return True
-
         # Check single controls
         for ctrl in self._active_mapping.get("controls", []):
             if ctrl.get("key") == key_name:
                 x = ctrl.get("x", 0.5)
                 y = ctrl.get("y", 0.5)
+                offset_range = ctrl.get("offsetRange", 0) / 100.0
+                if offset_range > 0:
+                    x += (random.random() * 2 - 1) * offset_range
+                    y += (random.random() * 2 - 1) * offset_range
+                    x = max(0.0, min(1.0, x))
+                    y = max(0.0, min(1.0, y))
                 resp = self.scrcpy.send_normalized_touch(0, x, y)
                 if resp.get("ok"):
                     pid = resp.get("pointer_id")
@@ -130,11 +91,15 @@ class KeyMappingExecutor:
                 return True
 
         # Check swipes
+        if key_name in self._active_swipe_keys:
+            return True  # swipe already in progress, skip key repeat
         for swp in self._active_mapping.get("swipes", []):
             if swp.get("key") == key_name:
                 path = swp.get("path", [])
                 if path:
-                    self.scrcpy.key_mapping_swipe(path)
+                    self._active_swipe_keys.add(key_name)
+                    recreate = self._capture_active_touches()
+                    self.scrcpy.key_mapping_swipe(path, recreate_touches=recreate)
                 return True
 
         # Check dpad
@@ -157,14 +122,18 @@ class KeyMappingExecutor:
             cy = dpad.get("y", 0.5)
             radius = dpad.get("size", 0.06)  # full radius to circle edge
 
-            # Get screen dimensions for aspect-ratio-aware diagonal normalisation
-            _sw, _sh = self.scrcpy._last_session if self.scrcpy._last_session else (None, None)
-
             # Initialize state for this dpad
             if dpad_idx not in self._dpad_states:
-                self._dpad_states[dpad_idx] = {"pressed": set(), "pid": None, "ex": 0.0, "ey": 0.0}
+                offset_range = dpad.get("offsetRange", 0) / 100.0
+                ox = (random.random() * 2 - 1) * offset_range if offset_range > 0 else 0.0
+                oy = (random.random() * 2 - 1) * offset_range if offset_range > 0 else 0.0
+                self._dpad_states[dpad_idx] = {"pressed": set(), "pid": None, "ex": 0.0, "ey": 0.0, "ox": ox, "oy": oy}
 
             state = self._dpad_states[dpad_idx]
+
+            # Apply stored random offset
+            cx += state["ox"]
+            cy += state["oy"]
 
             # Ignore duplicate press
             if key_name in state["pressed"]:
@@ -182,7 +151,7 @@ class KeyMappingExecutor:
                     to_remove = opp_key
 
             # Compute old edge position
-            old_edge = self._resolve_edge(old_pressed, key_to_dir, cx, cy, radius, _sw, _sh)
+            old_edge = self._resolve_edge(old_pressed, key_to_dir, cx, cy, radius)
 
             # Build new pressed set
             new_pressed = set(old_pressed)
@@ -191,7 +160,7 @@ class KeyMappingExecutor:
             new_pressed.add(key_name)
             state["pressed"] = new_pressed
 
-            new_edge = self._resolve_edge(new_pressed, key_to_dir, cx, cy, radius, _sw, _sh)
+            new_edge = self._resolve_edge(new_pressed, key_to_dir, cx, cy, radius)
 
             if new_edge is None:
                 # All directions canceled out — release
@@ -245,6 +214,14 @@ class KeyMappingExecutor:
         if not self._enabled or not self._active_mapping:
             return False
 
+        # Check swipe keys: update state with re-created touch pointers
+        if key_name in self._active_swipe_keys:
+            self._active_swipe_keys.discard(key_name)
+            results = self.scrcpy.wait_swipe_complete(timeout=0.5)
+            if results:
+                self._apply_recreate_results(results)
+            return True
+
         # Check single controls
         item = self._down_state_keys.pop(key_name, None)
         if item is not None:
@@ -278,10 +255,10 @@ class KeyMappingExecutor:
                     state["pid"] = None
             else:
                 # Update touch to new edge position
-                cx = dpad.get("x", 0.5)
-                cy = dpad.get("y", 0.5)
+                cx = dpad.get("x", 0.5) + state.get("ox", 0.0)
+                cy = dpad.get("y", 0.5) + state.get("oy", 0.0)
                 radius = dpad.get("size", 0.06)
-                new_edge = self._resolve_edge(state["pressed"], key_to_dir, cx, cy, radius, self.scrcpy._last_session[0] if self.scrcpy._last_session else None, self.scrcpy._last_session[1] if self.scrcpy._last_session else None)
+                new_edge = self._resolve_edge(state["pressed"], key_to_dir, cx, cy, radius)
                 if new_edge is not None and state["pid"] is not None:
                     self.scrcpy.send_normalized_touch(2, new_edge[0], new_edge[1], pointer_id=state["pid"])
                     state["ex"], state["ey"] = new_edge
@@ -290,160 +267,98 @@ class KeyMappingExecutor:
 
         return False
 
-    def _toggle_camera_mode(self, config):
-        """Toggle camera mode (3D view control)."""
-        if self._camera_active:
-            # --- Exit camera mode ---
-            self._camera_poll_stop.set()
-            if self._camera_poll_thread and self._camera_poll_thread.is_alive():
-                self._camera_poll_thread.join(timeout=1.0)
-            self._camera_poll_thread = None
+    # Keys that should be re-created after a swipe (movement/direction keys).
+    # Only these keys get the UP→delay→DOWN refresh; other keys are left alone.
+    _DIRECTION_KEYS = {"A", "D", "a", "d"}
 
-            self._camera_active = False
-            if self.scrcpy._last_session:
-                sw, sh = self.scrcpy._last_session
-                self.scrcpy.send_touch(1, self._camera_touch_x, self._camera_touch_y, sw, sh)
-            self._notify_camera_mode_change(False, None)
-            return
+    def _capture_active_touches(self) -> list:
+        """Snapshot active direction-key touches before swipe, for later re-creation.
 
-        # --- Enter camera mode ---
-        if not self.scrcpy._last_session:
-            return
-        sw, sh = self.scrcpy._last_session
+        Only captures keys listed in _DIRECTION_KEYS — other active controls
+        are not touched by the swipe refresh.
+        """
+        touches = []
+        for key_name, (pid, x, y) in self._down_state_keys.items():
+            if key_name in self._DIRECTION_KEYS:
+                touches.append({"type": "control", "key": key_name, "old_pid": pid, "x": x, "y": y})
+        for dpad_idx, state in self._dpad_states.items():
+            if state["pid"] is not None and state["pressed"]:
+                dpads = self._active_mapping.get("dpad", [])
+                if dpad_idx < len(dpads):
+                    dpad = dpads[dpad_idx]
+                    cx = dpad.get("x", 0.5) + state.get("ox", 0.0)
+                    cy = dpad.get("y", 0.5) + state.get("oy", 0.0)
+                    touches.append({
+                        "type": "dpad", "idx": dpad_idx, "old_pid": state["pid"],
+                        "cx": cx, "cy": cy, "ex": state["ex"], "ey": state["ey"],
+                    })
+        return touches
 
-        # Init Mouse
-        try:
-            mouse = Mouse()
-            mw, mh = mouse.screen_width, mouse.screen_height
-        except Exception:
-            return
-        self._camera_mouse = mouse
+    def _apply_recreate_results(self, results: list):
+        """Update touch state with new pointer IDs after swipe re-creation."""
+        for r in results:
+            if r["type"] == "control":
+                key = r["key"]
+                if key in self._down_state_keys:
+                    _pid, x, y = self._down_state_keys[key]
+                    self._down_state_keys[key] = (r["new_pid"], x, y)
+            elif r["type"] == "dpad":
+                idx = r["idx"]
+                if idx in self._dpad_states:
+                    self._dpad_states[idx]["pid"] = r["new_pid"]
 
-        cx = int(mw // 2)
-        cy = int(mh // 2)
-        self._camera_monitor_center = (cx, cy)
-        self._camera_boundary_radius_sq = 200 * 100
-        self._camera_last_mouse = (cx, cy)
+    def is_key_down(self, key_name: str) -> bool:
+        """Check if a key is currently held down (active touch pointer exists)."""
+        return key_name in self._down_state_keys
 
-        self._camera_active = True
-        self._camera_config = config
-        self._camera_center = (config.get('x', 0.5), config.get('y', 0.5))
+    def execute_screen_swipe(self, key_name: str, direction: str,
+                              distance: float, duration_ms: float,
+                              position_offset: float = 0.0,
+                              duration_offset: float = 0.0) -> dict:
+        """Execute a swipe using an active direction key's touch pointer.
 
-        self._camera_screen_width = sw
-        self._camera_screen_height = sh
-        device_cx = int(self._camera_center[0] * sw)
-        device_cy = int(self._camera_center[1] * sh)
-        self._camera_touch_x = device_cx
-        self._camera_touch_y = device_cy
-        self.scrcpy.send_touch(0, device_cx, device_cy, sw, sh)
+        The touch pointer stays DOWN — no UP is sent. This simulates a finger
+        sliding on screen while already holding a direction, as in the 瞬侧 technique.
 
-        # Start polling thread
-        self._camera_poll_stop.clear()
-        self._camera_poll_thread = threading.Thread(target=self._camera_poll_loop, daemon=True)
-        self._camera_poll_thread.start()
+        Returns:
+            dict with 'ok' and optional 'error'
+        """
+        item = self._down_state_keys.get(key_name)
+        if item is None:
+            return {"ok": False, "error": f"方向键 {key_name} 未按下"}
 
-        self._notify_camera_mode_change(True, {
-            'center': self._camera_center,
-            'sensitivity': self._camera_sensitivity
-        })
+        pid, start_x, start_y = item
 
-    def _notify_camera_mode_change(self, active, data):
-        """Notify frontend about camera mode state change."""
-        # Call frontend function via webview through API
-        if self._api and hasattr(self._api, '_window') and self._api._window:
-            try:
-                if active and data:
-                    js_code = f'window.setCameraMode(true, {{"x": {data["center"][0]}, "y": {data["center"][1]}, "sensitivity": {data["sensitivity"]}}})'
-                else:
-                    js_code = 'window.setCameraMode(false)'
-                self._api._window.evaluate_js(js_code)
-            except Exception:
-                pass
+        if position_offset > 0:
+            start_x += (random.random() * 2 - 1) * position_offset
+            start_y += (random.random() * 2 - 1) * position_offset
+            start_x = max(0.0, min(1.0, start_x))
+            start_y = max(0.0, min(1.0, start_y))
 
-    def _camera_poll_loop(self):
-        """Background thread: polls mouse position at 100Hz, sends touch deltas,
-        and physically resets mouse to monitor center when boundary is exceeded."""
-        mouse = self._camera_mouse
-        cx, cy = self._camera_monitor_center
-        r_sq = self._camera_boundary_radius_sq
-        mw, mh = mouse.screen_width, mouse.screen_height
-        last_mx, last_my = self._camera_last_mouse
+        if duration_offset > 0:
+            duration_ms += (random.random() * 2 - 1) * duration_offset
+            duration_ms = max(10.0, duration_ms)
 
-        while not self._camera_poll_stop.is_set():
-            try:
-                mx, my = mouse.get_mouse_position()
-            except Exception:
-                time.sleep(0.005)
-                continue
+        dir_map = {'左': (-1, 0), '右': (1, 0)}
+        dx, dy = dir_map.get(direction, (0, 0))
 
-            dx = mx - last_mx
-            dy = my - last_my
-            last_mx, last_my = mx, my
+        target_x = max(0.0, min(1.0, start_x + dx * distance))
+        target_y = max(0.0, min(1.0, start_y + dy * distance))
 
-            sens = self._camera_sensitivity
-            sw = self._camera_screen_width
-            sh = self._camera_screen_height
+        result = self.scrcpy.execute_direction_swipe(
+            pid, start_x, start_y, target_x, target_y, duration_ms
+        )
 
-            # Scale monitor delta to device touch delta
-            touch_dx = (dx / mw) * sw * sens if mw > 0 else 0
-            touch_dy = (dy / mh) * sh * sens if mh > 0 else 0
+        if result.get("ok"):
+            self._down_state_keys[key_name] = (pid, result.get("final_x", target_x), result.get("final_y", target_y))
 
-            with self._camera_lock:
-                new_tx = self._camera_touch_x + touch_dx
-                new_ty = self._camera_touch_y + touch_dy
-                clamped_tx = max(1, min(sw - 1, int(new_tx)))
-                clamped_ty = max(1, min(sh - 1, int(new_ty)))
-                self._camera_touch_x = clamped_tx
-                self._camera_touch_y = clamped_ty
-
-            if dx != 0 or dy != 0:
-                self.scrcpy.send_touch(2, clamped_tx, clamped_ty, sw, sh)
-
-            # Boundary check: distance from monitor center
-            off_x = mx - cx
-            off_y = my - cy
-            if off_x * off_x + off_y * off_y > r_sq:
-                # Lift touch
-                self.scrcpy.send_touch(1, clamped_tx, clamped_ty, sw, sh)
-                # Reset touch to device center
-                center_tx = int(self._camera_center[0] * sw)
-                center_ty = int(self._camera_center[1] * sh)
-                with self._camera_lock:
-                    self._camera_touch_x = center_tx
-                    self._camera_touch_y = center_ty
-                # Place touch at center
-                self.scrcpy.send_touch(0, center_tx, center_ty, sw, sh)
-                # Physically move mouse to monitor center
-                try:
-                    mouse.mouse_move(cx, cy, duration=0, steps=1)
-                except Exception:
-                    pass
-                last_mx, last_my = cx, cy
-
-            time.sleep(0.01)
+        return result
 
     def reset(self):
         """Reset all active key states and release pointers."""
-        # Stop camera polling thread first
-        self._camera_poll_stop.set()
-        if self._camera_poll_thread and self._camera_poll_thread.is_alive():
-            self._camera_poll_thread.join(timeout=1.0)
-        self._camera_poll_thread = None
-        self._camera_mouse = None
-
         self._down_state_keys.clear()
         self._dpad_states.clear()
-        # Also reset camera state
-        self._camera_active = False
-        self._camera_config = None
-        self._camera_center = (0.5, 0.5)
-        self._camera_touch_x = 0
-        self._camera_touch_y = 0
-        self._camera_screen_width = 0
-        self._camera_screen_height = 0
-        self._camera_sensitivity = 1.0
-        self._camera_monitor_center = (0, 0)
-        self._camera_last_mouse = (0, 0)
+        self._active_swipe_keys.clear()
         if self.scrcpy:
             self.scrcpy.key_mapping_reset()
 
@@ -454,28 +369,3 @@ class KeyMappingExecutor:
             self.reset()
         elif focused and not self._enabled and self._enabled_before_focus:
             self._enabled = True
-
-    def has_mleft_key_configured(self):
-        """检查当前键位映射是否有任何控件配置了MLeft键"""
-        if not self._active_mapping:
-            return False
-
-        # 检查所有类型的控件
-        for ctrl in self._active_mapping.get("controls", []):
-            if ctrl.get("key") == "MLeft":
-                return True
-
-        for swp in self._active_mapping.get("swipes", []):
-            if swp.get("key") == "MLeft":
-                return True
-
-        for dpad in self._active_mapping.get("dpad", []):
-            for _, info in dpad.get("keys", {}).items():
-                if info.get("key") == "MLeft":
-                    return True
-
-        for cam in self._active_mapping.get("camera", []):
-            if cam.get("key") == "MLeft":
-                return True
-
-        return False

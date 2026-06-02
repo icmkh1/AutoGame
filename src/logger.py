@@ -108,7 +108,10 @@ class Logger:
         if len(log_files) > 4:
             log_files.sort(key=lambda x: x.stat().st_mtime)
             for log_file in log_files[:-4]:
-                log_file.unlink()
+                try:
+                    log_file.unlink()
+                except PermissionError:
+                    pass
 
         log_filename = path / f'{datetime.now().strftime(date_format)}.log'
 

@@ -42,6 +42,7 @@ class Macro:
             '按下': self._down,
             '弹起': self._up,
             '移动': self._move,
+            '滑动': self._swipe,
             '滚轮': self._wheel_scroll,
             '延迟': self._delay,
         }
@@ -57,12 +58,13 @@ class Macro:
             '追踪': lambda data: self.track(data),
             '颜色匹配': lambda data: self.color_match(data),
             '图像匹配': lambda data: self.image_match(data),
-            '文字识别': lambda data: self.text_ocr(data)
+            '文字识别': lambda data: self.text_ocr(data),
+            '滑屏': lambda data: self._screen_swipe(data)
         }
         self.function_mapping_up = {
             '跟随': lambda data: self.follow(data, False)
         }
-        self.function_names = ['固定连击', '宏', '截图', '追踪', '图像匹配', '颜色匹配', '文字识别']
+        self.function_names = ['固定连击', '宏', '截图', '追踪', '图像匹配', '颜色匹配', '文字识别', '滑屏']
 
         self.match = Match()
         self.mouse = Mouse()
@@ -433,6 +435,35 @@ class Macro:
             return True
         except Exception:
             self._raise_error(f'移动指令参数错误：{action_list}')
+
+    def _swipe(self, action_list: list, len_al: int, key_mouse_mode: str = 'send'):
+        """
+            滑动指令 - 鼠标拖拽滑动
+        Args:
+            action_list (list): 指令参数列表 [滑动, x1, y1, x2, y2, 时长, 步数(可选)]
+            len_al (int): 指令参数数量
+            key_mouse_mode (str): 'send', 'post', 'global'。默认 'send'
+        """
+        if len_al not in (5, 6, 7):
+            self._raise_error(f'滑动指令参数个数错误，期望5~7，实际{len_al}：{action_list}')
+
+        try:
+            x1, y1 = int(action_list[1]), int(action_list[2])
+            x2, y2 = int(action_list[3]), int(action_list[4])
+            duration = float(action_list[5]) if len_al >= 6 else 0.5
+            steps = int(action_list[6]) if len_al == 7 else max(2, int(duration * 50))
+
+            if self.macro_window:
+                self.macro_window.send_mouse_down(x=x1, y=y1, button=0, mode=key_mouse_mode)
+                self.macro_window.send_mouse_move(x=x2, y=y2, duration=duration, steps=steps, mode=key_mouse_mode)
+                self.macro_window.send_mouse_up(x=x2, y=y2, button=0, mode=key_mouse_mode)
+            else:
+                self.mouse.mouse_down(x=x1, y=y1, button=0)
+                self.mouse.mouse_move(x=x2, y=y2, duration=duration, steps=steps)
+                self.mouse.mouse_up(x=x2, y=y2, button=0)
+            return True
+        except Exception:
+            self._raise_error(f'滑动指令参数错误：{action_list}')
 
     def _wheel_scroll(self, action_list: list, len_al: int, key_mouse_mode: str = 'send'):
         """
@@ -887,6 +918,65 @@ class Macro:
             raise e
 
 
+    def _screen_swipe(self, data: dict):
+        """
+            滑屏 - 使用方向键触摸指针执行滑动，不抬起手指
+            适用于QQ飞车瞬侧等需要在方向键上快速滑动的场景
+
+            关联方向键支持逗号分隔多个键（如 "A,D"），将使用第一个处于按下状态的键。
+            滑动方向设为 "自动" 时，根据按下的键自动判断方向（A→左, D→右）。
+        Args:
+            data (dict): 滑屏数据
+        """
+        self.logger.info(f'功能 滑屏 data：{data}')
+        try:
+            if not self.key_mapping_executor or not self.key_mapping_executor.enabled:
+                self.logger.error('功能 滑屏 错误：按键映射未启用')
+                return
+
+            key_names = [k.strip() for k in data.get('关联方向键', '').split(',') if k.strip()]
+            if not key_names:
+                self.logger.error(f'功能 滑屏 错误：关联方向键缺失，当前数据：{data}')
+                return
+
+            direction = data.get('滑动方向', '左')
+
+            try:
+                distance = float(data.get('滑动距离', 0.25))
+                duration = float(data.get('滑动时长', 60))
+                position_offset = float(data.get('位置偏移', 0))
+                duration_offset = float(data.get('时长偏移', 0))
+            except ValueError:
+                self.logger.error(f'功能 滑屏 错误：参数格式错误，当前数据：{data}')
+                return
+
+            # 默认方向映射：A→右, D→左
+            key_direction_map = {'A': '右', 'D': '左'}
+
+            for key_name in key_names:
+                if self.key_mapping_executor.is_key_down(key_name):
+                    if direction == '自动':
+                        actual_direction = key_direction_map.get(key_name, '左')
+                    elif direction in ('左', '右'):
+                        actual_direction = direction
+                    else:
+                        self.logger.error(f'功能 滑屏 错误：滑动方向参数错误，当前数据：{data}')
+                        return
+
+                    result = self.key_mapping_executor.execute_screen_swipe(
+                        key_name, actual_direction, distance, duration,
+                        position_offset, duration_offset
+                    )
+                    if result.get('ok'):
+                        return
+                    else:
+                        self.logger.error(f'功能 滑屏 执行失败({key_name})：{result.get("error")}')
+                        return
+
+            self.logger.error(f'功能 滑屏 错误：所有关联方向键均未按下 ({key_names})')
+        except Exception as e:
+            self.logger.error(f'功能 滑屏 报错信息：{e}')
+
 #   --------------------------------------------------宏功能触发-------------------------------------------------
 
     def _macro_trigger(self):
@@ -941,11 +1031,12 @@ class Macro:
 
         if self.macro_switch:
             # 连接到窗口
-            if self.macro_file[0]['窗口标题'] or self.macro_file[0]['窗口类名']:
+            first_entry = self.macro_file[0] if self.macro_file else {}
+            if first_entry.get('窗口标题') or first_entry.get('窗口类名'):
                 try:
                     self.macro_window = Window(
-                        title_name=self.macro_file[0]['窗口标题'],
-                        class_name=self.macro_file[0]['窗口类名']
+                        title_name=first_entry.get('窗口标题', ''),
+                        class_name=first_entry.get('窗口类名', '')
                     )
                     self.logger.info(f'连接窗口 成功 句柄信息：{self.macro_window.hwnd}')
                 except Exception as e:
@@ -955,7 +1046,7 @@ class Macro:
                     return False
 
             # 设置鼠标图标
-            if self.macro_file[0].get('鼠标图标更改', '否') == '是':
+            if first_entry.get('鼠标图标更改', '否') == '是':
                 self.set_mouse_icon()
 
             # 禁用编辑器并保存文件

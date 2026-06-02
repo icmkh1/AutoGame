@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="screencast-viewer" :class="{ 'fullscreen-mode': isFullscreen }" :data-theme="currentTheme" @keydown="handleKeydown">
     <div v-if="!isFullscreen" class="viewer-sidebar">
       <button class="stop-btn" @click="handleStop">
@@ -82,13 +82,8 @@ const hoveredButtons = ref<Record<string, string>>({})
 const isFullscreen = ref(false)
 const showKeyMapping = ref(false)
 const isKeyMappingActive = ref(false)
-const isCameraMode = ref(false)
-const hasMleftKeyConfigured = ref(false)
-let cameraCenterX = 0.5
-let cameraCenterY = 0.5
 let ws: WebSocket | null = null
 let wsReconnectAttempts = 0
-let mleftCheckInterval: number | null = null
 const MAX_WS_RECONNECT = 3
 
 const screenStyle = computed((): Record<string, string> => {
@@ -438,41 +433,12 @@ function resizeCanvas() {
   cvs.height = session.value.height
 }
 
-async function checkMleftKeyConfigured() {
-  try {
-    const result = await callApi("has_mleft_key_configured")
-    hasMleftKeyConfigured.value = !!result
-  } catch (e) {
-    console.error("Failed to check MLeft key config:", e)
-  }
-}
-
 async function onPointer(action: number, event: PointerEvent) {
-  // 相机模式：使用 pointer 事件驱动 3D 视角
-  if (isCameraMode.value) {
-    if (action === 0) {
-      // 第一次 pointerdown 时捕获指针，获得连续跟踪
-      if (canvas.value) {
-        canvas.value.setPointerCapture(event.pointerId)
-      }
-      return
-    }
-    if (action === 1) {
-      return  // pointerup 不处理，相机模式由键盘切换
-    }
-    if (action === 2) {
-      handleCameraMove(event)
-      return
-    }  }
-
-  // 互斥逻辑：MLeft键配置时禁用普通onPointer
-  if (hasMleftKeyConfigured.value) {
-    return
-  }
-
   if (!status.value.running || !session.value.width || !session.value.height || !canvas.value) return
 
   // Only send ACTION_MOVE when a button is actually held down
+  // This avoids flooding the scrcpy control stream with spurious moves
+  // when the user is just hovering the mouse over the canvas.
   if (action === 2 && event.buttons === 0) return
   const rect = canvas.value.getBoundingClientRect()
   const x = Math.max(0, Math.min(session.value.width, Math.round(((event.clientX - rect.left) / rect.width) * session.value.width)))
@@ -495,45 +461,6 @@ function closeKeyMapping() {
   isKeyMappingActive.value = true
 }
 
-async function enterCameraMode(config?: { x: number; y: number }) {
-  console.log('enterCameraMode called', config)
-  if (!canvas.value || !viewport.value) {
-    console.error('canvas or viewport is null')
-    return
-  }
-
-  isCameraMode.value = true
-  cameraCenterX = config?.x ?? 0.5
-  cameraCenterY = config?.y ?? 0.5
-  // Hide cursor
-  viewport.value.style.cursor = 'none'
-  console.log('Camera mode activated, center:', cameraCenterX, cameraCenterY)
-}
-
-function exitCameraMode() {
-  try {
-    isCameraMode.value = false
-
-    // Release pointer capture if active
-    if (canvas.value) {
-      try { canvas.value.releasePointerCapture(1) } catch (e) { console.log('releasePointerCapture failed:', e) }
-    }
-
-    // Show cursor
-    if (viewport.value) {
-      viewport.value.style.cursor = 'default'
-    }
-
-    console.log('Camera mode deactivated')
-  } catch (e) {
-    console.error("Failed to exit camera mode:", e)
-  }
-}
-
-function handleCameraMove(_e: PointerEvent) {
-  // No-op: backend now polls mouse position directly via polling thread
-}
-
 onMounted(async () => {
   fpsTimer = window.setInterval(() => {
     fps.value = framesThisSecond
@@ -552,42 +479,22 @@ onMounted(async () => {
   window.addEventListener('focus', handleFocus)
   window.addEventListener('keydown', handleKeydown)
   window.addEventListener('keyup', handleKeyup)
-
-  // Register global camera mode function for backend to call
-  ;(window as any).setCameraMode = setCameraMode
-
-  // 初始检查MLeft键状态并定期刷新
-  await checkMleftKeyConfigured()
-  mleftCheckInterval = window.setInterval(checkMleftKeyConfigured, 2000) // 每2秒刷新一次
-
   await nextTick()
   await startConnection()
 })
+
 onBeforeUnmount(() => {
   if (fpsTimer) window.clearInterval(fpsTimer)
-  if (mleftCheckInterval) window.clearInterval(mleftCheckInterval)
   resizeObserver?.disconnect()
   window.removeEventListener('blur', handleBlur)
   window.removeEventListener('focus', handleFocus)
   window.removeEventListener('keydown', handleKeydown)
   window.removeEventListener('keyup', handleKeyup)
-
-  // Clean up global function
-  delete (window as any).setCameraMode
-
-  // Clean up camera mode if still active
-  if (isCameraMode.value) {
-    exitCameraMode()
-  }
   stopConnection()
 })
 
 function handleBlur() {
   callApi("set_focus_state", false).catch(() => {})
-  // Exit camera mode on window blur
-  if (isCameraMode.value) {
-    exitCameraMode()
-  }
 }
 
 function handleFocus() {
@@ -602,16 +509,6 @@ function handleKeydown(event: KeyboardEvent) {
 
 function handleKeyup(_event: KeyboardEvent) {
 }
-
-function setCameraMode(active: boolean, config?: { x: number; y: number; sensitivity?: number }) {
-  console.log('setCameraMode called:', active, config)
-  if (active) {
-    enterCameraMode(config)
-  } else {
-    exitCameraMode()
-  }
-}
-
 defineExpose({
   toggleScrcpyFullscreen
 })

@@ -52,6 +52,21 @@
   border-color: #FBBF24;
 }
 
+.key-control.selected .control-circle {
+  border-color: #FBBF24;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.5);
+}
+
+.key-control.dpad.selected .dpad-circle {
+  border-color: #FBBF24;
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.5);
+}
+
+.offset-circle {
+  pointer-events: none;
+  z-index: 0;
+}
+
 @keyframes km-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6); }
   50% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }

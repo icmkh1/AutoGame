@@ -28,7 +28,7 @@ class AutoGameApp:
         self.api = Api(self.logger, self.macro, self.file_manager)
         self.macro.set_api(self.api)
 
-        self.key_mapping_executor = KeyMappingExecutor(self.api.scrcpy, self.api)
+        self.key_mapping_executor = KeyMappingExecutor(self.api.scrcpy)
         self.api.set_key_mapping_executor(self.key_mapping_executor)
 
         self.debug = True

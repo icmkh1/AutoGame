@@ -5,9 +5,9 @@
     "screencast": {
         "videoSource": "display",
         "audioSource": "output",
-        "quality": "1080",
+        "quality": "1280",
         "bitrate": 10,
-        "fpsLimit": 120,
+        "fpsLimit": 129,
         "aspectRatio": "reset"
     },
     "keyMappingFile": "默认配置"
