@@ -106,6 +106,14 @@
       </div>
     </div>
     <div class="km-scale-section">
+      <div class="km-scale-title">视角灵敏度</div>
+      <div class="km-scale-row">
+        <span class="km-scale-label active">X/Y</span>
+        <input type="range" min="0.5" max="5.0" step="0.1" :value="cameraSensitivity" @input="cameraSensitivity = Number(($event.target as HTMLInputElement).value); autoSave()" />
+        <span class="km-scale-value">{{ cameraSensitivity.toFixed(1) }}x</span>
+      </div>
+    </div>
+    <div class="km-scale-section">
       <div class="km-scale-title">按钮大小</div>
       <div class="km-scale-row">
         <span class="km-scale-label" :class="{ active: isLandscape }">横屏</span>
@@ -192,6 +200,7 @@ const kmCanvasRef = ref<HTMLElement | null>(null)
 
 const scaleLandscape = ref(100)  // 横屏缩放百分比
 const scalePortrait = ref(200)   // 竖屏缩放百分比（默认大60%）
+const cameraSensitivity = ref(1.0)  // 视角灵敏度
 
 
 let dragTarget: any = null
@@ -352,8 +361,10 @@ async function switchFile(name: string, skipSave = false) {
       cameras.value = (data.camera || []).map((cam: any) => ({ ...cam }))
       scaleLandscape.value = data.scaleLandscape ?? 100
       scalePortrait.value = data.scalePortrait ?? 200
+      cameraSensitivity.value = data.cameraSensitivity ?? 1.0
     } else {
       controls.value = []; dpads.value = []; swipes.value = []; cameras.value = []; scaleLandscape.value = 100; scalePortrait.value = 200
+      cameraSensitivity.value = 1.0
     }
     await callApi("apply_key_mapping", name)
     await saveSelectedKeyMappingFile(name)
@@ -371,10 +382,11 @@ async function saveCurrentMapping() {
     name: currentFile.value,
     scaleLandscape: scaleLandscape.value,
     scalePortrait: scalePortrait.value,
+    cameraSensitivity: cameraSensitivity.value,
     controls: controls.value.map((c: any) => ({ id: c.id, type: "single", key: c.key, label: c.label, x: c.x, y: c.y, radius: c.radius })),
     dpad: dpads.value.map((d: any) => ({ id: d.id, type: "dpad", x: d.x, y: d.y, size: d.size, keys: d.keys })),
     swipes: swipes.value.map((s: any) => ({ id: s.id, type: "swipe", label: s.label, key: s.key || "", x: s.x, y: s.y, radius: s.radius, path: s.path })),
-    camera: cameras.value.map((cam: any) => ({ id: cam.id, type: "camera", key: cam.key, label: cam.label, x: cam.x, y: cam.y, radius: cam.radius, sensitivity: cam.sensitivity })),
+    camera: cameras.value.map((cam: any) => ({ id: cam.id, type: "camera", key: cam.key, label: cam.label, x: cam.x, y: cam.y, radius: cam.radius })),
   }
   try {
     await callApi("save_key_mapping_file", currentFile.value, data)
@@ -466,8 +478,7 @@ function createCameraControl() {
     label: "",
     x: norm.x,
     y: norm.y,
-    radius: 15,
-    sensitivity: 0.005  // Higher default sensitivity for better response
+    radius: 15
   }
   cameras.value.push(cam)
   editingControlId.value = cam.id

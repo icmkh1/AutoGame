@@ -3,7 +3,6 @@
 import subprocess
 import sys
 import math
-from autoxkit.window import Window
 from .scrcpy_manager import ScrcpyManager
 from .key_mapping_executor import KeyMappingExecutor
 
@@ -14,7 +13,6 @@ class Api:
         self.file_manager = file_manager
         self._no_key_names = ['MLeft', 'MRight', 'Middle', 'MSide1', 'MSide2']
 
-        self.window_h = None
         self._window = None
         self._maximized = False
         self.scrcpy = ScrcpyManager()
@@ -138,7 +136,6 @@ class Api:
 
     def toggle_maximize(self):
         self.logger.info('Toggle maximize called')
-        self.window_h = None
         if self._window:
             try:
                 if self._maximized:
@@ -339,18 +336,6 @@ class Api:
         else:
             return {"ok": False, "error": f"unknown ratio: {ratio}"}
 
-    def reset_mouse_to_center(self):
-        """将鼠标重置到窗口中心位置"""
-        print("reset_mouse_to_center")
-        try:
-            if self.window_h is None:
-                self.window_h = Window(title_name="AutoGame")
-            client_size = [i // 2 for i in self.window_h.client_size]
-            self.window_h.send_mouse_move(client_size[0], client_size[1], duration=0, mode="global")
-
-            return {'ok': True, 'x': client_size[0], 'y': client_size[1]}
-        except Exception as e:
-            return {'ok': False, 'error': str(e)}
 
     def has_mleft_key_configured(self):
         """检查当前键位映射是否有任何控件配置了MLeft键"""
@@ -391,7 +376,6 @@ class Api:
             'set_focus_state',
             'stop_key_listener',
             'get_pressed_key',
-            'reset_mouse_to_center',
             'has_mleft_key_configured',
         ]
 

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import math
+import threading
+import time
+from autoxkit.mousekey.mouse import Mouse
 
 
 class KeyMappingExecutor:
@@ -17,6 +20,18 @@ class KeyMappingExecutor:
         self._camera_active = False  # 3D视角模式是否激活
         self._camera_config = None   # 当前相机控件配置
         self._camera_center = (0.5, 0.5)
+        self._camera_touch_x = 0         # 当前触摸位置 X（像素）
+        self._camera_touch_y = 0         # 当前触摸位置 Y（像素）
+        self._camera_screen_width = 0    # 设备屏幕宽度
+        self._camera_screen_height = 0   # 设备屏幕高度
+        self._camera_sensitivity = 1.0   # 视角灵敏度（从 mapping data 读取）
+        self._camera_mouse = None            # Mouse 实例（延时初始化）
+        self._camera_monitor_center = (0, 0) # 显示器中心
+        self._camera_boundary_radius_sq = 10000  # 100²
+        self._camera_last_mouse = (0, 0)     # 上次轮询的鼠标位置
+        self._camera_poll_thread = None      # 轮询线程
+        self._camera_poll_stop = threading.Event()  # 停止信号
+        self._camera_lock = threading.Lock() # 保护共享状态
 
     _DIR_VECTORS = {"up": (0, -1), "down": (0, 1), "left": (-1, 0), "right": (1, 0)}
     _OPPOSITE_DIRS = {"up": "down", "down": "up", "left": "right", "right": "left"}
@@ -24,6 +39,7 @@ class KeyMappingExecutor:
     def apply(self, mapping_data):
         self._active_mapping = mapping_data
         self._enabled = True
+        self._camera_sensitivity = mapping_data.get('cameraSensitivity', 1.0)
 
     def remove(self):
         self.reset()
@@ -277,36 +293,59 @@ class KeyMappingExecutor:
     def _toggle_camera_mode(self, config):
         """Toggle camera mode (3D view control)."""
         if self._camera_active:
-            # Exit camera mode
+            # --- Exit camera mode ---
+            self._camera_poll_stop.set()
+            if self._camera_poll_thread and self._camera_poll_thread.is_alive():
+                self._camera_poll_thread.join(timeout=1.0)
+            self._camera_poll_thread = None
+
             self._camera_active = False
-
-            # Release touch using send_touch (same as onPointer)
             if self.scrcpy._last_session:
                 sw, sh = self.scrcpy._last_session
-                px = int(self._camera_center[0] * sw)
-                py = int(self._camera_center[1] * sh)
-                self.scrcpy.send_touch(1, px, py, sw, sh)
-
-            # Notify frontend to exit camera mode
+                self.scrcpy.send_touch(1, self._camera_touch_x, self._camera_touch_y, sw, sh)
             self._notify_camera_mode_change(False, None)
-        else:
-            # Enter camera mode
-            self._camera_active = True
-            self._camera_config = config
-            self._camera_center = (config.get('x', 0.5), config.get('y', 0.5))
+            return
 
-            # Send initial touch (ACTION_DOWN = 0) using send_touch (same as onPointer)
-            if self.scrcpy._last_session:
-                sw, sh = self.scrcpy._last_session
-                px = int(self._camera_center[0] * sw)
-                py = int(self._camera_center[1] * sh)
-                self.scrcpy.send_touch(0, px, py, sw, sh)
+        # --- Enter camera mode ---
+        if not self.scrcpy._last_session:
+            return
+        sw, sh = self.scrcpy._last_session
 
-            # Notify frontend to enter camera mode
-            self._notify_camera_mode_change(True, {
-                'sensitivity': config.get('sensitivity', 0.001),
-                'center': self._camera_center
-            })
+        # Init Mouse
+        try:
+            mouse = Mouse()
+            mw, mh = mouse.screen_width, mouse.screen_height
+        except Exception:
+            return
+        self._camera_mouse = mouse
+
+        cx = int(mw // 2)
+        cy = int(mh // 2)
+        self._camera_monitor_center = (cx, cy)
+        self._camera_boundary_radius_sq = 200 * 100
+        self._camera_last_mouse = (cx, cy)
+
+        self._camera_active = True
+        self._camera_config = config
+        self._camera_center = (config.get('x', 0.5), config.get('y', 0.5))
+
+        self._camera_screen_width = sw
+        self._camera_screen_height = sh
+        device_cx = int(self._camera_center[0] * sw)
+        device_cy = int(self._camera_center[1] * sh)
+        self._camera_touch_x = device_cx
+        self._camera_touch_y = device_cy
+        self.scrcpy.send_touch(0, device_cx, device_cy, sw, sh)
+
+        # Start polling thread
+        self._camera_poll_stop.clear()
+        self._camera_poll_thread = threading.Thread(target=self._camera_poll_loop, daemon=True)
+        self._camera_poll_thread.start()
+
+        self._notify_camera_mode_change(True, {
+            'center': self._camera_center,
+            'sensitivity': self._camera_sensitivity
+        })
 
     def _notify_camera_mode_change(self, active, data):
         """Notify frontend about camera mode state change."""
@@ -321,14 +360,90 @@ class KeyMappingExecutor:
             except Exception:
                 pass
 
+    def _camera_poll_loop(self):
+        """Background thread: polls mouse position at 100Hz, sends touch deltas,
+        and physically resets mouse to monitor center when boundary is exceeded."""
+        mouse = self._camera_mouse
+        cx, cy = self._camera_monitor_center
+        r_sq = self._camera_boundary_radius_sq
+        mw, mh = mouse.screen_width, mouse.screen_height
+        last_mx, last_my = self._camera_last_mouse
+
+        while not self._camera_poll_stop.is_set():
+            try:
+                mx, my = mouse.get_mouse_position()
+            except Exception:
+                time.sleep(0.005)
+                continue
+
+            dx = mx - last_mx
+            dy = my - last_my
+            last_mx, last_my = mx, my
+
+            sens = self._camera_sensitivity
+            sw = self._camera_screen_width
+            sh = self._camera_screen_height
+
+            # Scale monitor delta to device touch delta
+            touch_dx = (dx / mw) * sw * sens if mw > 0 else 0
+            touch_dy = (dy / mh) * sh * sens if mh > 0 else 0
+
+            with self._camera_lock:
+                new_tx = self._camera_touch_x + touch_dx
+                new_ty = self._camera_touch_y + touch_dy
+                clamped_tx = max(1, min(sw - 1, int(new_tx)))
+                clamped_ty = max(1, min(sh - 1, int(new_ty)))
+                self._camera_touch_x = clamped_tx
+                self._camera_touch_y = clamped_ty
+
+            if dx != 0 or dy != 0:
+                self.scrcpy.send_touch(2, clamped_tx, clamped_ty, sw, sh)
+
+            # Boundary check: distance from monitor center
+            off_x = mx - cx
+            off_y = my - cy
+            if off_x * off_x + off_y * off_y > r_sq:
+                # Lift touch
+                self.scrcpy.send_touch(1, clamped_tx, clamped_ty, sw, sh)
+                # Reset touch to device center
+                center_tx = int(self._camera_center[0] * sw)
+                center_ty = int(self._camera_center[1] * sh)
+                with self._camera_lock:
+                    self._camera_touch_x = center_tx
+                    self._camera_touch_y = center_ty
+                # Place touch at center
+                self.scrcpy.send_touch(0, center_tx, center_ty, sw, sh)
+                # Physically move mouse to monitor center
+                try:
+                    mouse.mouse_move(cx, cy, duration=0, steps=1)
+                except Exception:
+                    pass
+                last_mx, last_my = cx, cy
+
+            time.sleep(0.01)
+
     def reset(self):
         """Reset all active key states and release pointers."""
+        # Stop camera polling thread first
+        self._camera_poll_stop.set()
+        if self._camera_poll_thread and self._camera_poll_thread.is_alive():
+            self._camera_poll_thread.join(timeout=1.0)
+        self._camera_poll_thread = None
+        self._camera_mouse = None
+
         self._down_state_keys.clear()
         self._dpad_states.clear()
         # Also reset camera state
         self._camera_active = False
         self._camera_config = None
         self._camera_center = (0.5, 0.5)
+        self._camera_touch_x = 0
+        self._camera_touch_y = 0
+        self._camera_screen_width = 0
+        self._camera_screen_height = 0
+        self._camera_sensitivity = 1.0
+        self._camera_monitor_center = (0, 0)
+        self._camera_last_mouse = (0, 0)
         if self.scrcpy:
             self.scrcpy.key_mapping_reset()
 

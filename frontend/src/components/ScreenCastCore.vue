@@ -84,9 +84,11 @@ const showKeyMapping = ref(false)
 const isKeyMappingActive = ref(false)
 const isCameraMode = ref(false)
 const hasMleftKeyConfigured = ref(false)
-let cameraPointerId: number | null = null
-let lastCameraX = 0
-let lastCameraY = 0
+let cameraCenterX = 0.5
+let cameraCenterY = 0.5
+let firstMove = true      // 首次 pointermove 只记录位置，不发 delta
+let lastClientX = 0
+let lastClientY = 0
 let ws: WebSocket | null = null
 let wsReconnectAttempts = 0
 let mleftCheckInterval: number | null = null
@@ -449,16 +451,32 @@ async function checkMleftKeyConfigured() {
 }
 
 async function onPointer(action: number, event: PointerEvent) {
-  // 互斥逻辑：当3D视角控制启用或有MLeft键配置时，禁用onPointer
-  if (isCameraMode.value || hasMleftKeyConfigured.value) {
+  // 相机模式：使用 pointer 事件驱动 3D 视角
+  if (isCameraMode.value) {
+    if (action === 0) {
+      // 第一次 pointerdown 时捕获指针，获得连续跟踪
+      if (canvas.value) {
+        canvas.value.setPointerCapture(event.pointerId)
+        firstMove = true
+      }
+      return
+    }
+    if (action === 1) {
+      return  // pointerup 不处理，相机模式由键盘切换
+    }
+    if (action === 2) {
+      handleCameraMove(event)
+      return
+    }  }
+
+  // 互斥逻辑：MLeft键配置时禁用普通onPointer
+  if (hasMleftKeyConfigured.value) {
     return
   }
 
   if (!status.value.running || !session.value.width || !session.value.height || !canvas.value) return
 
   // Only send ACTION_MOVE when a button is actually held down
-  // This avoids flooding the scrcpy control stream with spurious moves
-  // when the user is just hovering the mouse over the canvas.
   if (action === 2 && event.buttons === 0) return
   const rect = canvas.value.getBoundingClientRect()
   const x = Math.max(0, Math.min(session.value.width, Math.round(((event.clientX - rect.left) / rect.width) * session.value.width)))
@@ -481,58 +499,31 @@ function closeKeyMapping() {
   isKeyMappingActive.value = true
 }
 
-async function enterCameraMode(config: { x: number; y: number; sensitivity: number }) {
-  console.log('enterCameraMode called with config:', config)
-  try {
-    if (!canvas.value || !viewport.value) {
-      console.error('canvas or viewport is null')
-      return
-    }
-
-    isCameraMode.value = true
-
-    // Simulate a mousedown to get pointer ID
-    const mouseEvent = new MouseEvent('mousedown', {
-      clientX: config.x * canvas.value.getBoundingClientRect().width,
-      clientY: config.y * canvas.value.getBoundingClientRect().height,
-      bubbles: true,
-    })
-    const pointerId = canvas.value.dispatchEvent(mouseEvent) ? 1 : 1  // Default to 1 if no pointer ID available
-
-    // Wait a bit for pointer to be registered
-    await new Promise(resolve => setTimeout(resolve, 50))
-
-    // Set pointer capture
-    try {
-      cameraPointerId = pointerId
-      canvas.value.setPointerCapture(pointerId)
-    } catch (e) {
-      console.log('setPointerCapture failed, continuing anyway:', e)
-    }
-
-    // Hide cursor
-    viewport.value.style.cursor = 'none'
-
-    document.addEventListener('mousemove', onCameraMouseMove)
-    console.log('Camera mode activated')
-
-  } catch (e) {
-    console.error("Failed to enter camera mode:", e)
+async function enterCameraMode(config?: { x: number; y: number }) {
+  console.log('enterCameraMode called', config)
+  if (!canvas.value || !viewport.value) {
+    console.error('canvas or viewport is null')
+    return
   }
+
+  isCameraMode.value = true
+  cameraCenterX = config?.x ?? 0.5
+  cameraCenterY = config?.y ?? 0.5
+  firstMove = true
+  lastClientX = 0
+  lastClientY = 0
+  // Hide cursor
+  viewport.value.style.cursor = 'none'
+  console.log('Camera mode activated, center:', cameraCenterX, cameraCenterY)
 }
 
 function exitCameraMode() {
   try {
     isCameraMode.value = false
 
-    // Release pointer capture
-    if (canvas.value && cameraPointerId !== null) {
-      try {
-        canvas.value.releasePointerCapture(cameraPointerId)
-      } catch (e) {
-        console.log('releasePointerCapture failed:', e)
-      }
-      cameraPointerId = null
+    // Release pointer capture if active
+    if (canvas.value) {
+      try { canvas.value.releasePointerCapture(1) } catch (e) { console.log('releasePointerCapture failed:', e) }
     }
 
     // Show cursor
@@ -540,74 +531,14 @@ function exitCameraMode() {
       viewport.value.style.cursor = 'default'
     }
 
-    // Send touch up at last known position
-    callApi("scrcpy_send_touch", 1, lastCameraX, lastCameraY, session.value.width, session.value.height)
-
-    document.removeEventListener('mousemove', onCameraMouseMove)
     console.log('Camera mode deactivated')
   } catch (e) {
     console.error("Failed to exit camera mode:", e)
   }
 }
 
-function onCameraMouseMove(e: MouseEvent) {
-  if (!isCameraMode.value || !canvas.value || !session.value.width || !session.value.height) return
-
-  // Get current canvas rect (dynamic, works in both windowed and fullscreen mode)
-  const rect = canvas.value.getBoundingClientRect()
-  const canvasX = Math.round(e.clientX - rect.left)
-  const canvasY = Math.round(e.clientY - rect.top)
-
-  // Normalize to session coordinates (same as onPointer function)
-  const newX = Math.max(0, Math.min(session.value.width, Math.round((canvasX / rect.width) * session.value.width)))
-  const newY = Math.max(0, Math.min(session.value.height, Math.round((canvasY / rect.height) * session.value.height)))
-
-  // Check if mouse is at boundary (using canvas coordinates)
-  const atLeft = canvasX <= 100
-  const atRight = canvasX >= rect.width - 100
-  const atTop = canvasY <= 100
-  const atBottom = canvasY >= rect.height - 100
-
-  if (atLeft || atRight || atTop || atBottom) {
-    // Calculate center position (in canvas coordinates)
-    const centerCanvasX = Math.round(rect.width / 2)
-    const centerCanvasY = Math.round(rect.height / 2)
-
-    // Normalize center to session coordinates
-    const centerX = Math.round((centerCanvasX / rect.width) * session.value.width)
-    const centerY = Math.round((centerCanvasY / rect.height) * session.value.height)
-
-    // Release pointer capture
-    if (cameraPointerId !== null) {
-      try {
-        canvas.value.releasePointerCapture(cameraPointerId)
-      } catch (err) {
-        console.log('releasePointerCapture failed:', err)
-      }
-    }
-
-    // Reset mouse position to center via backend
-    callApi("reset_mouse_to_center")
-
-    // Re-acquire pointer capture
-    if (cameraPointerId !== null) {
-      try {
-        canvas.value.setPointerCapture(cameraPointerId)
-      } catch (err) {
-        console.log('setPointerCapture failed:', err)
-      }
-    }
-
-    lastCameraX = centerX
-    lastCameraY = centerY
-    // Send ACTION_DOWN at center to re-establish touch
-    callApi("scrcpy_send_touch", 0, centerX, centerY, session.value.width, session.value.height)
-  } else {
-    // Send touch move (using normalized session coordinates)
-    lastCameraX = newX
-    lastCameraY = newY
-    callApi("scrcpy_send_touch", 2, newX, newY, session.value.width, session.value.height)
-  }
+function handleCameraMove(_e: PointerEvent) {
+  // No-op: backend now polls mouse position directly via polling thread
 }
 
 onMounted(async () => {
@@ -639,7 +570,6 @@ onMounted(async () => {
   await nextTick()
   await startConnection()
 })
-
 onBeforeUnmount(() => {
   if (fpsTimer) window.clearInterval(fpsTimer)
   if (mleftCheckInterval) window.clearInterval(mleftCheckInterval)
@@ -652,11 +582,19 @@ onBeforeUnmount(() => {
   // Clean up global function
   delete (window as any).setCameraMode
 
+  // Clean up camera mode if still active
+  if (isCameraMode.value) {
+    exitCameraMode()
+  }
   stopConnection()
 })
 
 function handleBlur() {
   callApi("set_focus_state", false).catch(() => {})
+  // Exit camera mode on window blur
+  if (isCameraMode.value) {
+    exitCameraMode()
+  }
 }
 
 function handleFocus() {
@@ -672,9 +610,9 @@ function handleKeydown(event: KeyboardEvent) {
 function handleKeyup(_event: KeyboardEvent) {
 }
 
-function setCameraMode(active: boolean, config?: { x: number; y: number; sensitivity: number }) {
+function setCameraMode(active: boolean, config?: { x: number; y: number; sensitivity?: number }) {
   console.log('setCameraMode called:', active, config)
-  if (active && config) {
+  if (active) {
     enterCameraMode(config)
   } else {
     exitCameraMode()
